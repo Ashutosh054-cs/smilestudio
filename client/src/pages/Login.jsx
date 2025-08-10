@@ -114,13 +114,6 @@ function Login() {
               )}
             </button>
           </form>
-
-          {/* Demo Credentials Info */}
-          <div className="mt-6 p-4 bg-blue-500/20 border border-blue-500/30 rounded-lg">
-            <p className="text-blue-200 text-sm font-medium mb-2">Demo Credentials:</p>
-            <p className="text-blue-200 text-xs">Email: admin@picturesmilestudio.com</p>
-            <p className="text-blue-200 text-xs">Password: admin123</p>
-          </div>
         </div>
 
         {/* Back to Home */}
