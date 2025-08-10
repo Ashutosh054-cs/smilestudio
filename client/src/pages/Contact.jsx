@@ -9,7 +9,6 @@ export default function Contact() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [error, setError] = useState('');
 
   const handleChange = (e) => {
     setFormData({
@@ -21,34 +20,23 @@ export default function Contact() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setError('');
 
     try {
-      // Using FormData instead of JSON for better compatibility
-      const formDataToSend = new FormData();
-      formDataToSend.append('name', formData.name);
-      formDataToSend.append('phone', formData.phone);
-      formDataToSend.append('email', formData.email);
-      formDataToSend.append('comments', formData.comments);
-
+      // Replace 'your-form-id' with your actual Formspree form ID
       const response = await fetch('https://formspree.io/f/mblkqzlv', {
         method: 'POST',
-        body: formDataToSend,
         headers: {
-          'Accept': 'application/json'
-        }
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
       });
 
       if (response.ok) {
         setSubmitted(true);
         setFormData({ name: '', phone: '', email: '', comments: '' });
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error || `Server error: ${response.status}`);
       }
     } catch (error) {
       console.error('Error submitting form:', error);
-      setError('Network error. Please check your connection and try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -78,97 +66,78 @@ export default function Contact() {
               </button>
             </div>
           ) : (
-            <>
-              {error && (
-                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                  <div className="flex">
-                    <div className="text-red-400">⚠️</div>
-                    <div className="ml-3">
-                      <h3 className="text-sm font-medium text-red-800">
-                        Error submitting form
-                      </h3>
-                      <p className="text-sm text-red-700 mt-1">{error}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div onSubmit={handleSubmit}>
-                <div className="space-y-6">
-                  <div>
-                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                      Name *
-                    </label>
-                    <input
-                      type="text"
-                      id="name"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleChange}
-                      required
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition"
-                      placeholder="Your full name"
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                      Phone Number *
-                    </label>
-                    <input
-                      type="tel"
-                      id="phone"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleChange}
-                      required
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition"
-                      placeholder="Your phone number"
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                      Email Address *
-                    </label>
-                    <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      required
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition"
-                      placeholder="your@email.com"
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="comments" className="block text-sm font-medium text-gray-700 mb-2">
-                      Comments
-                    </label>
-                    <textarea
-                      id="comments"
-                      name="comments"
-                      value={formData.comments}
-                      onChange={handleChange}
-                      rows={5}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition resize-none"
-                      placeholder="Tell us about your photography needs..."
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    onClick={handleSubmit}
-                    className="w-full bg-pink-600 text-white py-3 px-6 rounded-lg hover:bg-pink-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition font-medium"
-                  >
-                    {isSubmitting ? 'Sending...' : 'Send Message'}
-                  </button>
-                </div>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+                  Name *
+                </label>
+                <input
+                  type="text"
+                  id="name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition"
+                  placeholder="Your full name"
+                />
               </div>
-            </>
+
+              <div>
+                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+                  Phone Number *
+                </label>
+                <input
+                  type="tel"
+                  id="phone"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition"
+                  placeholder="Your phone number"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                  Email Address *
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition"
+                  placeholder="your@email.com"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="comments" className="block text-sm font-medium text-gray-700 mb-2">
+                  Comments
+                </label>
+                <textarea
+                  id="comments"
+                  name="comments"
+                  value={formData.comments}
+                  onChange={handleChange}
+                  rows={5}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition resize-none"
+                  placeholder="Tell us about your photography needs..."
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full bg-pink-600 text-white py-3 px-6 rounded-lg hover:bg-pink-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition font-medium"
+              >
+                {isSubmitting ? 'Sending...' : 'Send Message'}
+              </button>
+            </form>
           )}
         </div>
       </div>
