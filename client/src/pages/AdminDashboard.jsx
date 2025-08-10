@@ -1,14 +1,15 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Trash2, Edit3, Save, Plus, Camera, LogOut, Percent, AlertCircle, Home } from "lucide-react"
+import { Trash2, Edit3, Save, Plus, Camera, LogOut, Percent, AlertCircle, Home, RefreshCw } from "lucide-react"
 import { useNavigate } from "react-router-dom"
-import { supabase, handleSupabaseError } from "../services/supabaseClient"
+import { supabase, handleSupabaseError, getImageUrl, validateImageUrl } from "../services/supabaseClient"
 
 function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("gallery")
   const navigate = useNavigate()
   const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
 
   // Check if user is authenticated
   useEffect(() => {
@@ -21,6 +22,7 @@ function AdminDashboard() {
   // Gallery State
   const [galleryImages, setGalleryImages] = useState([])
   const [loading, setLoading] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
 
   // Load gallery images from Supabase
   useEffect(() => {
@@ -30,6 +32,7 @@ function AdminDashboard() {
   const fetchGalleryImages = async () => {
     try {
       setError("")
+      setRefreshing(true)
       const { data, error } = await supabase
         .from("gallery_images")
         .select("*")
@@ -41,6 +44,8 @@ function AdminDashboard() {
       const errorMessage = handleSupabaseError(error, "fetching images")
       setError(errorMessage)
       console.error("Error fetching images:", error)
+    } finally {
+      setRefreshing(false)
     }
   }
 
@@ -87,6 +92,21 @@ function AdminDashboard() {
 
   const categories = ["wedding", "prewedding", "engagement", "event", "portrait", "maternity", "other"]
 
+  // Clear messages after 5 seconds
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => setSuccess(""), 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [success])
+
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(""), 10000)
+      return () => clearTimeout(timer)
+    }
+  }, [error])
+
   // Upload file to Supabase Storage
   const uploadFileToSupabase = async (file) => {
     const fileExt = file.name.split(".").pop()
@@ -109,24 +129,28 @@ function AdminDashboard() {
     if (file) {
       const maxSize = 5 * 1024 * 1024 // 5MB
       if (file.size > maxSize) {
-        alert("File too large! Please choose an image under 5MB.")
+        setError("File too large! Please choose an image under 5MB.")
         e.target.value = ""
         return
       }
 
       if (!file.type.startsWith("image/")) {
-        alert("Please select an image file only!")
+        setError("Please select an image file only!")
         e.target.value = ""
         return
       }
 
       const fileUrl = URL.createObjectURL(file)
       setNewImage({ ...newImage, file: file, imageUrl: fileUrl })
+      setError("")
     }
   }
 
   const handleAddImage = async () => {
-    if (!newImage.title || (!newImage.imageUrl && !newImage.file)) return
+    if (!newImage.title || (!newImage.imageUrl && !newImage.file)) {
+      setError("Please provide both title and image")
+      return
+    }
 
     setLoading(true)
     setError("")
@@ -136,6 +160,12 @@ function AdminDashboard() {
 
       if (newImage.file) {
         imageUrl = await uploadFileToSupabase(newImage.file)
+      } else if (newImage.imageUrl) {
+        // Validate external URL
+        const isValid = await validateImageUrl(newImage.imageUrl)
+        if (!isValid) {
+          throw new Error("Invalid image URL or image not accessible")
+        }
       }
 
       const { data, error } = await supabase
@@ -154,7 +184,7 @@ function AdminDashboard() {
       await fetchGalleryImages()
       setNewImage({ title: "", category: "wedding", imageUrl: "", file: null })
       setShowAddForm(false)
-      alert("Image added successfully!")
+      setSuccess("Image added successfully!")
     } catch (error) {
       const errorMessage = handleSupabaseError(error, "adding image")
       setError(errorMessage)
@@ -182,7 +212,7 @@ function AdminDashboard() {
       }
 
       await fetchGalleryImages()
-      alert("Image deleted successfully!")
+      setSuccess("Image deleted successfully!")
     } catch (error) {
       const errorMessage = handleSupabaseError(error, "deleting image")
       setError(errorMessage)
@@ -216,7 +246,7 @@ function AdminDashboard() {
       if (error) throw error
 
       setEditingDiscount(null)
-      alert("Discount settings updated successfully!")
+      setSuccess("Discount settings updated successfully!")
     } catch (error) {
       const errorMessage = handleSupabaseError(error, "updating discount")
       setError(errorMessage)
@@ -231,14 +261,10 @@ function AdminDashboard() {
     }
   }
 
-  const goToHome = () => {
-    navigate("/")
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-white shadow-sm border-b sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
@@ -269,6 +295,25 @@ function AdminDashboard() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Success Message */}
+        {success && (
+          <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
+            <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+              <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <div>
+              <h3 className="font-semibold text-green-800">Success</h3>
+              <p className="text-green-700 text-sm">{success}</p>
+            </div>
+          </div>
+        )}
+
         {/* Error Display */}
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
@@ -308,12 +353,22 @@ function AdminDashboard() {
                 <Camera className="text-pink-600" />
                 Gallery Management ({galleryImages.length} images)
               </h2>
-              <button
-                onClick={() => setShowAddForm(true)}
-                className="px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 flex items-center gap-2 transition-colors"
-              >
-                <Plus size={16} /> Add New Image
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={fetchGalleryImages}
+                  disabled={refreshing}
+                  className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors"
+                >
+                  <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+                  <span>Refresh</span>
+                </button>
+                <button
+                  onClick={() => setShowAddForm(true)}
+                  className="px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 flex items-center gap-2 transition-colors"
+                >
+                  <Plus size={16} /> Add New Image
+                </button>
+              </div>
             </div>
 
             {/* Add New Image Form */}
@@ -390,8 +445,7 @@ function AdminDashboard() {
                       alt="Preview"
                       className="w-32 h-32 object-cover rounded-lg border"
                       onError={(e) => {
-                        e.target.src = "/placeholder.svg?height=128&width=128&text=Error Loading"
-                        setNewImage({ ...newImage, imageUrl: "" })
+                        e.target.src = `https://via.placeholder.com/128x128/cccccc/666666?text=Error`
                       }}
                     />
                   </div>
@@ -427,12 +481,15 @@ function AdminDashboard() {
                 >
                   <div className="relative group">
                     <img
-                      src={image.image_url || "/placeholder.svg"}
+                      src={
+                        getImageUrl(image.image_url) ||
+                        `https://via.placeholder.com/400x300/f3f4f6/6b7280?text=${encodeURIComponent(image.title)}`
+                      }
                       alt={image.title}
                       className="w-full h-48 object-cover"
                       onError={(e) => {
                         console.log("Image failed to load:", image.image_url)
-                        e.target.src = `https://via.placeholder.com/400x300/cccccc/666666?text=${encodeURIComponent(image.title)}`
+                        e.target.src = `https://via.placeholder.com/400x300/f3f4f6/6b7280?text=${encodeURIComponent(image.title)}`
                       }}
                     />
                     <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -449,7 +506,9 @@ function AdminDashboard() {
                     <span className="inline-block px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full capitalize">
                       {image.category}
                     </span>
-                    <p className="text-xs text-gray-500 mt-1 truncate">{image.image_url}</p>
+                    <p className="text-xs text-gray-500 mt-1 truncate" title={image.image_url}>
+                      {image.image_url}
+                    </p>
                   </div>
                 </div>
               ))}
