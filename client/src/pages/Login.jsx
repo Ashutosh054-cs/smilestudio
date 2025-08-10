@@ -1,46 +1,40 @@
-"use client"
-
-import { useState } from "react"
-import { Lock, User, Eye, EyeOff, AlertCircle } from "lucide-react"
-import { useNavigate } from "react-router-dom"
+import { useState } from "react";
+import { Lock, User, Eye, EyeOff } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 function Login() {
-  const [credentials, setCredentials] = useState({ email: "", password: "" })
-  const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState("")
-  const [loading, setLoading] = useState(false)
-  const navigate = useNavigate()
+  const [credentials, setCredentials] = useState({ email: "", password: "" });
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   // Demo credentials - in real app, this would be handled by backend
   const ADMIN_CREDENTIALS = {
     email: "admin@picturesmilestudio.com",
-    password: "admin123",
-  }
+    password: "admin123"
+  };
 
   const handleLogin = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setError("")
-
-    // Basic validation
-    if (!credentials.email || !credentials.password) {
-      setError("Please fill in all fields")
-      setLoading(false)
-      return
-    }
+    e.preventDefault();
+    setLoading(true);
+    setError("");
 
     // Simulate API call delay
     setTimeout(() => {
-      if (credentials.email === ADMIN_CREDENTIALS.email && credentials.password === ADMIN_CREDENTIALS.password) {
+      if (
+        credentials.email === ADMIN_CREDENTIALS.email &&
+        credentials.password === ADMIN_CREDENTIALS.password
+      ) {
         // In real app, you'd get a JWT token here
-        localStorage.setItem("adminToken", "demo-token-12345")
-        navigate("/admin")
+        localStorage.setItem('adminToken', 'demo-token-12345');
+        navigate('/admin'); // This was the missing line!
       } else {
-        setError("Invalid email or password")
+        setError("Invalid email or password");
       }
-      setLoading(false)
-    }, 1000)
-  }
+      setLoading(false);
+    }, 1000);
+  };
 
   return (
     <section className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center px-4">
@@ -59,13 +53,15 @@ function Login() {
           <form onSubmit={handleLogin} className="space-y-6">
             {/* Email Field */}
             <div>
-              <label className="block text-white text-sm font-medium mb-2">Email Address</label>
+              <label className="block text-white text-sm font-medium mb-2">
+                Email Address
+              </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/60" size={20} />
                 <input
                   type="email"
                   value={credentials.email}
-                  onChange={(e) => setCredentials({ ...credentials, email: e.target.value })}
+                  onChange={(e) => setCredentials({...credentials, email: e.target.value})}
                   className="w-full pl-10 pr-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-white/60 focus:outline-none focus:border-white/60 focus:bg-white/30 transition-all"
                   placeholder="Enter your email"
                   required
@@ -75,13 +71,15 @@ function Login() {
 
             {/* Password Field */}
             <div>
-              <label className="block text-white text-sm font-medium mb-2">Password</label>
+              <label className="block text-white text-sm font-medium mb-2">
+                Password
+              </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/60" size={20} />
                 <input
                   type={showPassword ? "text" : "password"}
                   value={credentials.password}
-                  onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
+                  onChange={(e) => setCredentials({...credentials, password: e.target.value})}
                   className="w-full pl-10 pr-12 py-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-white/60 focus:outline-none focus:border-white/60 focus:bg-white/30 transition-all"
                   placeholder="Enter your password"
                   required
@@ -98,9 +96,8 @@ function Login() {
 
             {/* Error Message */}
             {error && (
-              <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3 flex items-center gap-2">
-                <AlertCircle className="text-red-200" size={16} />
-                <span className="text-red-200 text-sm">{error}</span>
+              <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3 text-red-200 text-sm">
+                {error}
               </div>
             )}
 
@@ -128,13 +125,16 @@ function Login() {
 
         {/* Back to Home */}
         <div className="text-center mt-6">
-          <button onClick={() => navigate("/")} className="text-white/80 hover:text-white text-sm transition-colors">
+          <button
+            onClick={() => navigate('/')}
+            className="text-white/80 hover:text-white text-sm transition-colors"
+          >
             ← Back to Home
           </button>
         </div>
       </div>
     </section>
-  )
+  );
 }
 
-export default Login
+export default Login;

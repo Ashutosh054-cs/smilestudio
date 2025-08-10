@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Camera, Filter, X, AlertCircle } from "lucide-react"
-import { supabase, handleSupabaseError, getImageUrl } from "../services/supabaseClient"
+import { supabase, handleSupabaseError } from "../services/supabaseClient"
 
 function Gallery() {
   const [selectedCategory, setSelectedCategory] = useState("all")
@@ -162,10 +162,7 @@ function Gallery() {
             >
               <div className="relative overflow-hidden">
                 <img
-                  src={
-                    getImageUrl(image.image_url) ||
-                    `https://via.placeholder.com/400x300/f3f4f6/6b7280?text=${encodeURIComponent(image.title)}`
-                  }
+                  src={image.image_url || "/placeholder.svg"}
                   alt={image.title}
                   className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-110"
                   onError={(e) => {
@@ -215,10 +212,7 @@ function Gallery() {
               <X size={24} />
             </button>
             <img
-              src={
-                getImageUrl(selectedImage.image_url) ||
-                `https://via.placeholder.com/800x600/f3f4f6/6b7280?text=${encodeURIComponent(selectedImage.title)}`
-              }
+              src={selectedImage.image_url || "/placeholder.svg"}
               alt={selectedImage.title}
               className="max-w-full max-h-[90vh] object-contain rounded-lg"
               onError={(e) => {
