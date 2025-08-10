@@ -2,6 +2,14 @@ import { Link } from "react-router-dom";
 import { MapPin, Phone, Mail, Instagram, Facebook, Youtube, Camera, Heart, Video, Book } from "lucide-react";
 
 function Footer() {
+  // Function to open Google Maps
+  const openGoogleMaps = () => {
+    const address = "Picture Smile Studio, Kalla, Deogarh, Odisha, India 768110";
+    const encodedAddress = encodeURIComponent(address);
+    const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+    window.open(googleMapsUrl, '_blank');
+  };
+
   return (
     <footer className="bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white py-16 px-4 border-t border-gray-800">
       <div className="max-w-7xl mx-auto">
@@ -69,56 +77,39 @@ function Footer() {
             </div>
           </div>
 
-          {/* Studio Location Map */}
+          {/* Studio Location Map - FIXED */}
           <div>
             <h3 className="text-lg font-semibold mb-4 text-pink-400">Find Us</h3>
             
-            {/* Interactive Google Map Embed */}
-            <div className="relative bg-gray-800 rounded-lg overflow-hidden h-48 mb-4">
-              <iframe
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3742.1234567890!2d85.8245!3d20.2961!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMjDCsDE3JzQ2LjAiTiA4NcKwNDknMjguMyJF!5e0!3m2!1sen!2sin!4v1234567890"
-                width="100%"
-                height="100%"
-                style={{ border: 0 }}
-                allowFullScreen=""
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-                className="grayscale hover:grayscale-0 transition-all duration-300"
-              ></iframe>
-              
-              {/* Map Overlay for Click */}
-              <div className="absolute inset-0 bg-black/20 hover:bg-transparent transition-all duration-300 flex items-center justify-center">
-                <div className="bg-white/90 backdrop-blur-sm px-3 py-2 rounded-full text-gray-800 text-sm font-medium hover:bg-white transition-all">
-                  <MapPin size={16} className="inline mr-1" />
-                  View on Google Maps
+            {/* Static Map Image with Click to Open */}
+            <div 
+              className="relative bg-gray-800 rounded-lg overflow-hidden h-48 mb-4 cursor-pointer group"
+              onClick={openGoogleMaps}
+            >
+              {/* Placeholder map image - you can replace with actual map screenshot */}
+              <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center">
+                <div className="text-center">
+                  <MapPin className="mx-auto text-pink-400 mb-2" size={32} />
+                  <p className="text-white text-sm font-medium">Kalla, Deogarh</p>
+                  <p className="text-gray-300 text-xs">Odisha, India</p>
                 </div>
               </div>
-            </div>
-
-            {/* Alternative: Static Map Image with Click-to-Open */}
-            {/* 
-            <div className="relative bg-gray-800 rounded-lg overflow-hidden h-48 mb-4 cursor-pointer group"
-                 onClick={() => window.open('https://goo.gl/maps/YOUR_GOOGLE_MAPS_LINK', '_blank')}>
-              <img 
-                src="https://via.placeholder.com/300x200/374151/f8fafc?text=Picture+Smile+Studio+Location"
-                alt="Picture Smile Studio Location"
-                className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-300"
-              />
+              
+              {/* Hover overlay */}
               <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-all duration-300 flex items-center justify-center">
-                <div className="bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full text-gray-800 font-medium">
+                <div className="bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full text-gray-800 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
                   <MapPin size={16} className="inline mr-2" />
                   Click to Open Map
                 </div>
               </div>
             </div>
-            */}
             
-            <Link 
-              to="/contact"
+            <button 
+              onClick={openGoogleMaps}
               className="block w-full text-center bg-pink-600 hover:bg-pink-700 text-white py-2 rounded-lg transition-colors font-medium"
             >
               Get Directions
-            </Link>
+            </button>
           </div>
         </div>
 

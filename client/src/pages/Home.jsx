@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import { motion, AnimatePresence } from "framer-motion";
@@ -16,10 +16,11 @@ function Home() {
   const [bgIndex, setBgIndex] = useState(0);
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
 
-  const texts = ["Perfect Moments", "Beautiful Memories", "Love Stories", "Special Days", "Dream Weddings"];
-  const backgroundImages = [bg1, bg2, bg3, bg4]; 
+  // Memoize static data to prevent re-renders
+  const texts = useMemo(() => ["Perfect Moments", "Beautiful Memories", "Love Stories", "Special Days", "Dream Weddings"], []);
+  const backgroundImages = useMemo(() => [bg1, bg2, bg3, bg4], []);
 
-  const services = [
+  const services = useMemo(() => [
     {
       icon: "👑",
       title: "Wedding Photography",
@@ -56,9 +57,9 @@ function Home() {
       description: "Professional coverage for business events and conferences",
       features: ["Conferences", "Product Launches", "Team Building", "Award Ceremonies"]
     }
-  ];
+  ], []);
 
-  const testimonials = [
+  const testimonials = useMemo(() => [
     {
       name: "Priya & Rajesh",
       location: "Bhubaneswar",
@@ -95,9 +96,9 @@ function Home() {
       text: "They captured our emotions so perfectly! Seithi photos dekhi ame cry kalauni. Highly recommend Picture Smile Studio!",
       rating: 5
     }
-  ];
+  ], []);
 
-  // Typewriter effect
+  // Optimized typewriter effect - reduced frequency
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (!isDeleting && charIndex < texts[currentIndex].length) {
@@ -107,30 +108,30 @@ function Home() {
         setCurrentText(texts[currentIndex].substring(0, charIndex - 1));
         setCharIndex(charIndex - 1);
       } else if (!isDeleting && charIndex === texts[currentIndex].length) {
-        setTimeout(() => setIsDeleting(true), 1500);
+        setTimeout(() => setIsDeleting(true), 2000);
       } else if (isDeleting && charIndex === 0) {
         setIsDeleting(false);
         setCurrentIndex((currentIndex + 1) % texts.length);
       }
-    }, isDeleting ? 50 : 100);
+    }, isDeleting ? 80 : 150); // Slower typing for better performance
 
     return () => clearTimeout(timeout);
   }, [currentText, currentIndex, charIndex, isDeleting, texts]);
 
-  // Background image rotation
+  // Slower background changes
   useEffect(() => {
     const bgInterval = setInterval(() => {
       setBgIndex((prevIndex) => (prevIndex + 1) % backgroundImages.length);
-    }, 8000); // Changes every 8 seconds
+    }, 12000); // Slower changes
 
     return () => clearInterval(bgInterval);
   }, [backgroundImages.length]);
 
-  // Testimonial rotation
+  // Slower testimonial rotation
   useEffect(() => {
     const testimonialInterval = setInterval(() => {
       setCurrentTestimonial((prevIndex) => (prevIndex + 1) % testimonials.length);
-    }, 4000); // Changes every 4 seconds
+    }, 6000); // Slower rotation
 
     return () => clearInterval(testimonialInterval);
   }, [testimonials.length]);
@@ -147,17 +148,17 @@ function Home() {
         <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </Helmet>
 
-      {/* Hero Section */}
+      {/* Hero Section - Optimized */}
       <section className="relative min-h-screen w-full flex items-center justify-center pt-24 overflow-hidden">
         <AnimatePresence>
           <motion.div
             key={bgIndex}
-            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat will-change-transform"
             style={{ backgroundImage: `url(${backgroundImages[bgIndex]})` }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 2 }}
+            transition={{ duration: 1.5 }}
           />
         </AnimatePresence>
         <div className="bg-gradient-to-r from-black/40 via-transparent to-black/30 w-full h-full absolute top-0 left-0" />
@@ -186,7 +187,7 @@ function Home() {
           <div className="flex flex-col sm:flex-row gap-4 animate-slide-up" style={{animationDelay: '0.6s'}}>
             <Link
               to="https://wa.me/917682991297"
-              className="px-6 py-3 bg-pink-600 text-white text-lg font-bold rounded-lg shadow-xl hover:bg-pink-700 transition-all duration-300 border-2 border-white/50 hover:scale-105 animate-bounce-subtle"
+              className="px-6 py-3 bg-pink-600 text-white text-lg font-bold rounded-lg shadow-xl hover:bg-pink-700 transition-all duration-300 border-2 border-white/50 hover:scale-105"
             >
               Book Your Session
             </Link>
@@ -219,6 +220,7 @@ function Home() {
         </div>
       </section>
 
+      {/* Rest of your sections remain the same... */}
       {/* Services Section */}
       <section className="py-20 bg-gradient-to-br from-gray-50 to-white">
         <div className="max-w-7xl mx-auto px-4">
@@ -279,10 +281,10 @@ function Home() {
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentTestimonial}
-                initial={{ opacity: 0, x: 100 }}
+                initial={{ opacity: 0, x: 50 }}
                 animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -100 }}
-                transition={{ duration: 0.5 }}
+                exit={{ opacity: 0, x: -50 }}
+                transition={{ duration: 0.3 }}
                 className="bg-white rounded-2xl shadow-xl p-8 md:p-12 mx-auto max-w-4xl"
               >
                 <div className="flex items-center justify-center mb-6">
@@ -352,6 +354,7 @@ function Home() {
         </div>
       </section>
 
+      {/* Optimized CSS */}
       <style jsx>{`
         @keyframes fade-in {
           from { opacity: 0; }
@@ -361,18 +364,14 @@ function Home() {
           from { opacity: 0; transform: translateY(30px); }
           to { opacity: 1; transform: translateY(0); }
         }
-        @keyframes bounce-subtle {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-3px); }
-        }
         .animate-fade-in {
           animation: fade-in 1s ease-out;
         }
         .animate-slide-up {
           animation: slide-up 0.8s ease-out both;
         }
-        .animate-bounce-subtle {
-          animation: bounce-subtle 2s infinite;
+        .will-change-transform {
+          will-change: transform;
         }
       `}</style>
     </>
