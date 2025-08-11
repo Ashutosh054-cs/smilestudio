@@ -1,8 +1,7 @@
 "use client"
-
 import { useState, useEffect } from "react"
-import { Camera, Filter, X, AlertCircle } from "lucide-react"
-import { supabase, handleSupabaseError } from "../services/supabaseClient"
+import { Camera, Filter, X } from "lucide-react"
+import { supabase, handleSupabaseError, getImageUrl } from "../services/supabaseClient"
 
 function Gallery() {
   const [selectedCategory, setSelectedCategory] = useState("all")
@@ -10,6 +9,7 @@ function Gallery() {
   const [galleryImages, setGalleryImages] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [imageLoadErrors, setImageLoadErrors] = useState(new Set())
 
   useEffect(() => {
     fetchGalleryImages()
@@ -18,61 +18,70 @@ function Gallery() {
   const fetchGalleryImages = async () => {
     try {
       setError("")
+      setLoading(true)
+
       const { data, error } = await supabase
         .from("gallery_images")
         .select("*")
         .order("created_at", { ascending: false })
 
       if (error) throw error
+
       setGalleryImages(data || [])
+      setImageLoadErrors(new Set())
     } catch (error) {
       const errorMessage = handleSupabaseError(error, "fetching images")
       setError(errorMessage)
       console.error("Error fetching images:", error)
-
-      // Fallback to default images if Supabase fails
-      const defaultImages = [
-        {
-          id: 1,
-          title: "Wedding Ceremony",
-          category: "wedding",
-          image_url: "https://images.unsplash.com/photo-1519741497674-611481863552?w=800",
-        },
-        {
-          id: 2,
-          title: "Pre-Wedding Shoot",
-          category: "prewedding",
-          image_url: "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=800",
-        },
-        {
-          id: 3,
-          title: "Engagement Ring",
-          category: "engagement",
-          image_url: "https://images.unsplash.com/photo-1515934751635-c81c6bc9a2d8?w=800",
-        },
-        {
-          id: 4,
-          title: "Portrait Session",
-          category: "portrait",
-          image_url: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800",
-        },
-        {
-          id: 5,
-          title: "Event Coverage",
-          category: "event",
-          image_url: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800",
-        },
-        {
-          id: 6,
-          title: "Maternity Shoot",
-          category: "maternity",
-          image_url: "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=800",
-        },
-      ]
-      setGalleryImages(defaultImages)
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleImageError = (imageId) => {
+    setImageLoadErrors((prev) => new Set([...prev, imageId]))
+  }
+
+  const handleImageLoad = (imageId) => {
+    setImageLoadErrors((prev) => {
+      const newSet = new Set(prev)
+      newSet.delete(imageId)
+      return newSet
+    })
+  }
+
+  const getImageSrc = (image) => {
+    if (imageLoadErrors.has(image.id)) {
+      return `https://via.placeholder.com/800x600/ff0000/ffffff?text=ERROR`
+    }
+
+    if (image.storage_path) {
+      try {
+        const imageUrl = getImageUrl(image.storage_path)
+        if (imageUrl) {
+          return imageUrl
+        }
+      } catch (err) {
+        console.error("Error getting Supabase image URL:", err)
+      }
+    }
+
+    if (image.image_url) {
+      try {
+        if (image.image_url.includes("unsplash.com")) {
+          const url = new URL(image.image_url)
+          url.searchParams.set("auto", "format")
+          url.searchParams.set("fit", "crop")
+          url.searchParams.set("q", "80")
+          return url.toString()
+        }
+        return image.image_url
+      } catch (err) {
+        console.error("Error processing image URL:", err, image.image_url)
+      }
+    }
+
+    return `https://via.placeholder.com/800x600/cccccc/666666?text=No+Image`
   }
 
   const categories = [
@@ -110,18 +119,6 @@ function Gallery() {
   return (
     <section className="bg-gradient-to-br from-gray-50 to-white pt-32 pb-16 px-4 md:px-8 lg:px-20">
       <div className="max-w-7xl mx-auto">
-        {/* Error Display */}
-        {error && (
-          <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-center gap-3">
-            <AlertCircle className="text-yellow-600" size={20} />
-            <div>
-              <h3 className="font-semibold text-yellow-800">Notice</h3>
-              <p className="text-yellow-700 text-sm">{error}</p>
-              <p className="text-yellow-700 text-sm">Showing sample images instead.</p>
-            </div>
-          </div>
-        )}
-
         {/* Header */}
         <div className="text-center mb-12">
           <div className="flex items-center justify-center mb-6">
@@ -129,10 +126,17 @@ function Gallery() {
             <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-800">Our Gallery</h1>
           </div>
           <p className="text-gray-600 text-base md:text-lg max-w-2xl mx-auto">
-            Explore our collection of beautiful moments captured with passion and creativity
+            Capturing beautiful moments and creating lasting memories
           </p>
           <div className="w-16 md:w-24 h-1 bg-gradient-to-r from-pink-500 to-purple-500 mx-auto mt-4 rounded-full"></div>
         </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-8">
+            <p className="text-red-600">{error}</p>
+          </div>
+        )}
 
         {/* Category Filter */}
         <div className="flex flex-wrap justify-center gap-3 mb-12">
@@ -154,49 +158,42 @@ function Gallery() {
 
         {/* Gallery Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredImages.map((image) => (
-            <div
-              key={image.id}
-              className="group cursor-pointer bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 hover:scale-105"
-              onClick={() => setSelectedImage(image)}
-            >
-              <div className="relative overflow-hidden">
-                <img
-                  src={image.image_url || "/placeholder.svg"}
-                  alt={image.title}
-                  className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-110"
-                  onError={(e) => {
-                    console.log("Gallery image failed to load:", image.image_url)
-                    e.target.src = `https://via.placeholder.com/400x300/f3f4f6/6b7280?text=${encodeURIComponent(image.title)}`
-                  }}
-                />
-                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-300 flex items-center justify-center">
-                  <div className="text-white opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">
-                    <Camera size={24} />
-                  </div>
+          {filteredImages.map((image) => {
+            const imageSrc = getImageSrc(image)
+
+            return (
+              <div
+                key={image.id}
+                className="group cursor-pointer bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2"
+                onClick={() => setSelectedImage(image)}
+              >
+                <div className="relative w-full h-64 overflow-hidden">
+                  <img
+                    src={imageSrc || "/placeholder.svg"}
+                    alt={image.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    onError={() => handleImageError(image.id)}
+                    onLoad={() => handleImageLoad(image.id)}
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 </div>
-                {/* Category Badge */}
-                <div className="absolute top-3 left-3">
-                  <span className="bg-white/90 backdrop-blur-sm px-2 py-1 rounded-full text-xs font-medium text-gray-700 capitalize">
-                    {image.category}
-                  </span>
+
+                <div className="p-4">
+                  <h3 className="font-semibold text-gray-800 mb-2">{image.title}</h3>
+                  <p className="text-sm text-gray-500 capitalize">{image.category}</p>
                 </div>
               </div>
-              <div className="p-4">
-                <h3 className="font-semibold text-gray-800 text-sm group-hover:text-pink-600 transition-colors">
-                  {image.title}
-                </h3>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         {/* Empty State */}
-        {filteredImages.length === 0 && (
+        {filteredImages.length === 0 && !loading && (
           <div className="text-center py-20">
             <Camera className="mx-auto text-gray-400 mb-4" size={64} />
             <h3 className="text-xl font-semibold text-gray-600 mb-2">No photos found</h3>
-            <p className="text-gray-500">No images available in this category yet.</p>
+            <p className="text-gray-500 mb-4">No images available in this category yet.</p>
           </div>
         )}
       </div>
@@ -212,12 +209,10 @@ function Gallery() {
               <X size={24} />
             </button>
             <img
-              src={selectedImage.image_url || "/placeholder.svg"}
+              src={getImageSrc(selectedImage) || "/placeholder.svg"}
               alt={selectedImage.title}
               className="max-w-full max-h-[90vh] object-contain rounded-lg"
-              onError={(e) => {
-                e.target.src = `https://via.placeholder.com/800x600/f3f4f6/6b7280?text=${encodeURIComponent(selectedImage.title)}`
-              }}
+              onError={() => handleImageError(selectedImage.id)}
             />
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-6 text-white">
               <h3 className="text-xl font-semibold mb-2">{selectedImage.title}</h3>

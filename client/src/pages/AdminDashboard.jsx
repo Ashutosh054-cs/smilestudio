@@ -1,9 +1,8 @@
 "use client"
-
 import { useState, useEffect } from "react"
 import { Trash2, Edit3, Save, Plus, Camera, LogOut, Percent, AlertCircle, Home } from "lucide-react"
 import { useNavigate } from "react-router-dom"
-import { supabase, handleSupabaseError } from "../services/supabaseClient"
+import { supabase, handleSupabaseError, uploadImageToSupabase } from "../services/supabaseClient"
 
 function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("gallery")
@@ -56,6 +55,7 @@ function AdminDashboard() {
     try {
       setError("")
       const { data, error } = await supabase.from("discount_settings").select("*")
+
       if (error) throw error
 
       const discountObj = {}
@@ -87,22 +87,6 @@ function AdminDashboard() {
 
   const categories = ["wedding", "prewedding", "engagement", "event", "portrait", "maternity", "other"]
 
-  // Upload file to Supabase Storage
-  const uploadFileToSupabase = async (file) => {
-    const fileExt = file.name.split(".").pop()
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
-
-    const { data, error } = await supabase.storage.from("gallery-images").upload(fileName, file)
-
-    if (error) throw error
-
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("gallery-images").getPublicUrl(fileName)
-
-    return publicUrl
-  }
-
   // Gallery Management Functions
   const handleFileUpload = (e) => {
     const file = e.target.files[0]
@@ -133,9 +117,12 @@ function AdminDashboard() {
 
     try {
       let imageUrl = newImage.imageUrl
+      let storagePath = null
 
       if (newImage.file) {
-        imageUrl = await uploadFileToSupabase(newImage.file)
+        const uploadResult = await uploadImageToSupabase(newImage.file)
+        imageUrl = uploadResult.publicUrl
+        storagePath = uploadResult.fileName
       }
 
       const { data, error } = await supabase
@@ -145,6 +132,7 @@ function AdminDashboard() {
             title: newImage.title,
             category: newImage.category,
             image_url: imageUrl,
+            storage_path: storagePath,
           },
         ])
         .select()
@@ -164,21 +152,19 @@ function AdminDashboard() {
     }
   }
 
-  const handleDeleteImage = async (id, imageUrl) => {
+  const handleDeleteImage = async (id, imageUrl, storagePath) => {
     if (!window.confirm("Are you sure you want to delete this image?")) return
 
     try {
       setError("")
-
       // Delete from database
       const { error: dbError } = await supabase.from("gallery_images").delete().eq("id", id)
 
       if (dbError) throw dbError
 
-      // Try to delete from storage (optional, won't fail if file doesn't exist)
-      if (imageUrl && imageUrl.includes("gallery-images")) {
-        const fileName = imageUrl.split("/").pop()
-        await supabase.storage.from("gallery-images").remove([fileName])
+      // Try to delete from storage if we have a storage path
+      if (storagePath) {
+        await supabase.storage.from("gallery-images").remove([storagePath])
       }
 
       await fetchGalleryImages()
@@ -320,7 +306,6 @@ function AdminDashboard() {
             {showAddForm && (
               <div className="bg-gray-50 rounded-lg p-4 mb-6 border">
                 <h3 className="font-semibold mb-4">Add New Image</h3>
-
                 <div className="flex gap-4 mb-4">
                   <button
                     onClick={() => setUploadMethod("file")}
@@ -339,7 +324,6 @@ function AdminDashboard() {
                     Enter Image URL
                   </button>
                 </div>
-
                 <div className="grid md:grid-cols-3 gap-4">
                   <input
                     type="text"
@@ -348,7 +332,6 @@ function AdminDashboard() {
                     onChange={(e) => setNewImage({ ...newImage, title: e.target.value })}
                     className="p-3 border rounded-lg focus:outline-none focus:border-pink-500"
                   />
-
                   <select
                     value={newImage.category}
                     onChange={(e) => setNewImage({ ...newImage, category: e.target.value })}
@@ -360,7 +343,6 @@ function AdminDashboard() {
                       </option>
                     ))}
                   </select>
-
                   {uploadMethod === "file" ? (
                     <div className="relative">
                       <input
@@ -381,7 +363,6 @@ function AdminDashboard() {
                     />
                   )}
                 </div>
-
                 {newImage.imageUrl && (
                   <div className="mt-4">
                     <p className="text-sm text-gray-600 mb-2">Preview:</p>
@@ -396,7 +377,6 @@ function AdminDashboard() {
                     />
                   </div>
                 )}
-
                 <div className="flex gap-2 mt-4">
                   <button
                     onClick={handleAddImage}
@@ -437,7 +417,7 @@ function AdminDashboard() {
                     />
                     <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <button
-                        onClick={() => handleDeleteImage(image.id, image.image_url)}
+                        onClick={() => handleDeleteImage(image.id, image.image_url, image.storage_path)}
                         className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
                       >
                         <Trash2 size={16} />
@@ -472,7 +452,6 @@ function AdminDashboard() {
               <Percent className="text-purple-600" />
               Discount Settings
             </h2>
-
             <div className="grid md:grid-cols-2 gap-6">
               {Object.entries(discountSettings).map(([key, discount]) => (
                 <div key={key} className="border border-gray-200 rounded-lg p-6">
