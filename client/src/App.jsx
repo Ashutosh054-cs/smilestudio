@@ -17,11 +17,20 @@ import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
 import { Toaster } from 'react-hot-toast';
 
+// Component to conditionally render Navbar
+function ConditionalNavbar() {
+  const location = useLocation();
+  const hideNavbarPaths = ['/login', '/admin']; // Hide navbar on these routes
+  if (hideNavbarPaths.includes(location.pathname)) {
+    return null;
+  }
+  return <Navbar />;
+}
+
 // Component to conditionally render Footer
 function ConditionalFooter() {
   const location = useLocation();
-  // Show footer on all pages except these
-  const hideFooterPaths = ['/login', '/admin'];
+  const hideFooterPaths = ['/login', '/admin']; // Hide footer on these routes
   if (hideFooterPaths.includes(location.pathname)) {
     return null;
   }
@@ -46,52 +55,44 @@ function App() {
           }}
         />
         
-        <Navbar />
+        {/* Conditional Navbar */}
+        <ConditionalNavbar />
         
         <main className="flex-grow">
           <Routes>
             <Route path="/" element={<Home />} />
-            
             <Route path="/about" element={
               <div className="py-20 bg-gradient-to-br from-gray-50 to-white">
                 <About />
               </div>
             } />
-            
             <Route path="/gallery" element={
               <div className="py-12 bg-gradient-to-br from-gray-50 to-white">
                 <Gallery />
               </div>
             } />
-            
             <Route path="/services" element={
               <div className="py-20 bg-gradient-to-br from-gray-50 to-white">
                 <Services />
               </div>
             } />
-            
             <Route path="/booking" element={
               <div className="py-12 bg-gradient-to-br from-gray-50 to-white">
                 <Booking />
               </div>
             } />
-            
             <Route path="/contact" element={
               <div className="py-12 bg-gradient-to-br from-gray-50 to-white">
                 <Contact />
               </div>
             } />
-            
-            <Route path="/login" element={
-              <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex items-center justify-center py-12 px-4">
-                <Login />
-              </div>
-            } />
-            
+            {/* Fixed Login Route - Remove extra wrapper divs */}
+            <Route path="/login" element={<Login />} />
             <Route
               path="/admin"
               element={
                 <ProtectedRoute>
+                  {/* No navbar here */}
                   <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
                     <AdminDashboard />
                   </div>

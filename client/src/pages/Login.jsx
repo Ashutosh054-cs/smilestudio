@@ -37,93 +37,95 @@ function Login() {
   };
 
   return (
-    <section className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center px-4">
-      <div className="max-w-md w-full">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center mb-4">
-            <Lock className="text-white mr-3" size={40} />
-            <h1 className="text-3xl font-bold text-white">Admin Login</h1>
+    <section className="min-h-screen w-full bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+      <div className="w-full min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8">
+        <div className="w-full max-w-4xl">
+          {/* Header */}
+          <div className="text-center mb-8 sm:mb-12">
+            <div className="flex items-center justify-center mb-6">
+              <Lock className="text-white mr-3" size={48} />
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white">Admin Login</h1>
+            </div>
+            <p className="text-white/80 text-lg sm:text-xl">Access your studio dashboard</p>
           </div>
-          <p className="text-white/80">Access your studio dashboard</p>
-        </div>
 
-        {/* Login Form */}
-        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20">
-          <form onSubmit={handleLogin} className="space-y-6">
-            {/* Email Field */}
-            <div>
-              <label className="block text-white text-sm font-medium mb-2">
-                Email Address
-              </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/60" size={20} />
-                <input
-                  type="email"
-                  value={credentials.email}
-                  onChange={(e) => setCredentials({...credentials, email: e.target.value})}
-                  className="w-full pl-10 pr-4 py-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-white/60 focus:outline-none focus:border-white/60 focus:bg-white/30 transition-all"
-                  placeholder="Enter your email"
-                  required
-                />
+          {/* Login Form */}
+          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 sm:p-8 lg:p-12 border border-white/20 mx-auto max-w-2xl">
+            <form onSubmit={handleLogin} className="space-y-6 sm:space-y-8">
+              {/* Email Field */}
+              <div>
+                <label className="block text-white text-sm sm:text-base font-medium mb-3">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <User className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white/60" size={20} />
+                  <input
+                    type="email"
+                    value={credentials.email}
+                    onChange={(e) => setCredentials({...credentials, email: e.target.value})}
+                    className="w-full pl-12 pr-4 py-4 sm:py-5 bg-white/20 border border-white/30 rounded-lg text-white placeholder-white/60 focus:outline-none focus:border-white/60 focus:bg-white/30 transition-all text-base sm:text-lg"
+                    placeholder="Enter your email"
+                    required
+                  />
+                </div>
               </div>
-            </div>
 
-            {/* Password Field */}
-            <div>
-              <label className="block text-white text-sm font-medium mb-2">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/60" size={20} />
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={credentials.password}
-                  onChange={(e) => setCredentials({...credentials, password: e.target.value})}
-                  className="w-full pl-10 pr-12 py-3 bg-white/20 border border-white/30 rounded-lg text-white placeholder-white/60 focus:outline-none focus:border-white/60 focus:bg-white/30 transition-all"
-                  placeholder="Enter your password"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/60 hover:text-white transition-colors"
-                >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
+              {/* Password Field */}
+              <div>
+                <label className="block text-white text-sm sm:text-base font-medium mb-3">
+                  Password
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white/60" size={20} />
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={credentials.password}
+                    onChange={(e) => setCredentials({...credentials, password: e.target.value})}
+                    className="w-full pl-12 pr-14 py-4 sm:py-5 bg-white/20 border border-white/30 rounded-lg text-white placeholder-white/60 focus:outline-none focus:border-white/60 focus:bg-white/30 transition-all text-base sm:text-lg"
+                    placeholder="Enter your password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white/60 hover:text-white transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
               </div>
-            </div>
 
-            {/* Error Message */}
-            {error && (
-              <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3 text-red-200 text-sm">
-                {error}
-              </div>
-            )}
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-            >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              ) : (
-                "Sign In"
+              {/* Error Message */}
+              {error && (
+                <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4 text-red-200 text-sm sm:text-base">
+                  {error}
+                </div>
               )}
-            </button>
-          </form>
-        </div>
 
-        {/* Back to Home */}
-        <div className="text-center mt-6">
-          <button
-            onClick={() => navigate('/')}
-            className="text-white/80 hover:text-white text-sm transition-colors"
-          >
-            ← Back to Home
-          </button>
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white font-semibold py-4 sm:py-5 px-4 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-base sm:text-lg"
+              >
+                {loading ? (
+                  <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                ) : (
+                  "Sign In"
+                )}
+              </button>
+            </form>
+          </div>
+
+          {/* Back to Home */}
+          <div className="text-center mt-8 sm:mt-12">
+            <button
+              onClick={() => navigate('/')}
+              className="text-white/80 hover:text-white text-sm sm:text-base transition-colors"
+            >
+              ← Back to Home
+            </button>
+          </div>
         </div>
       </div>
     </section>
