@@ -226,7 +226,7 @@ function AdminDashboard() {
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0">
             <div className="flex items-center space-x-4">
               <Camera className="text-pink-600" size={32} />
               <div>
@@ -234,17 +234,17 @@ function AdminDashboard() {
                 <p className="text-gray-600 text-sm">Picture Smile Studio - Administrative Panel</p>
               </div>
             </div>
-            <div className="flex items-center space-x-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
               <button
                 onClick={() => navigate("/")}
-                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors w-full sm:w-auto"
               >
                 <Home size={16} />
                 <span>View Site</span>
               </button>
               <button
                 onClick={handleLogout}
-                className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                className="flex items-center justify-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors w-full sm:w-auto"
               >
                 <LogOut size={16} />
                 <span>Logout</span>
@@ -267,7 +267,7 @@ function AdminDashboard() {
         )}
 
         {/* Tabs */}
-        <div className="flex space-x-1 mb-8 bg-gray-200 p-1 rounded-lg w-fit">
+        <div className="flex flex-col sm:flex-row w-full sm:w-fit space-y-2 sm:space-y-0 sm:space-x-1 mb-8 bg-gray-200 p-1 rounded-lg">
           <button
             onClick={() => setActiveTab("gallery")}
             className={`px-6 py-2 rounded-lg font-medium transition-all ${
@@ -289,14 +289,14 @@ function AdminDashboard() {
         {/* Gallery Management Tab */}
         {activeTab === "gallery" && (
           <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
               <h2 className="text-2xl font-semibold flex items-center gap-2">
                 <Camera className="text-pink-600" />
                 Gallery Management ({galleryImages.length} images)
               </h2>
               <button
                 onClick={() => setShowAddForm(true)}
-                className="px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 flex items-center gap-2 transition-colors"
+                className="px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 flex items-center gap-2 transition-colors w-full sm:w-auto"
               >
                 <Plus size={16} /> Add New Image
               </button>
@@ -306,10 +306,10 @@ function AdminDashboard() {
             {showAddForm && (
               <div className="bg-gray-50 rounded-lg p-4 mb-6 border">
                 <h3 className="font-semibold mb-4">Add New Image</h3>
-                <div className="flex gap-4 mb-4">
+                <div className="flex flex-col sm:flex-row gap-4 mb-4">
                   <button
                     onClick={() => setUploadMethod("file")}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                    className={`px-4 py-2 rounded-lg text-sm font-medium w-full sm:w-auto ${
                       uploadMethod === "file" ? "bg-pink-600 text-white" : "bg-gray-200 text-gray-600"
                     }`}
                   >
@@ -317,14 +317,14 @@ function AdminDashboard() {
                   </button>
                   <button
                     onClick={() => setUploadMethod("url")}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                    className={`px-4 py-2 rounded-lg text-sm font-medium w-full sm:w-auto ${
                       uploadMethod === "url" ? "bg-pink-600 text-white" : "bg-gray-200 text-gray-600"
                     }`}
                   >
                     Enter Image URL
                   </button>
                 </div>
-                <div className="grid md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <input
                     type="text"
                     placeholder="Image Title"
@@ -377,11 +377,11 @@ function AdminDashboard() {
                     />
                   </div>
                 )}
-                <div className="flex gap-2 mt-4">
+                <div className="flex flex-col sm:flex-row gap-2 mt-4">
                   <button
                     onClick={handleAddImage}
                     disabled={!newImage.title || (!newImage.imageUrl && !newImage.file) || loading}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors w-full sm:w-auto"
                   >
                     {loading ? "Adding..." : "Add Image"}
                   </button>
@@ -390,7 +390,7 @@ function AdminDashboard() {
                       setShowAddForm(false)
                       setNewImage({ title: "", category: "wedding", imageUrl: "", file: null })
                     }}
-                    className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                    className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors w-full sm:w-auto"
                   >
                     Cancel
                   </button>
@@ -399,7 +399,7 @@ function AdminDashboard() {
             )}
 
             {/* Gallery Grid */}
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {galleryImages.map((image) => (
                 <div
                   key={image.id}
@@ -452,7 +452,7 @@ function AdminDashboard() {
               <Percent className="text-purple-600" />
               Discount Settings
             </h2>
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {Object.entries(discountSettings).map(([key, discount]) => (
                 <div key={key} className="border border-gray-200 rounded-lg p-6">
                   <div className="space-y-4">
@@ -500,16 +500,16 @@ function AdminDashboard() {
                           />
                           <label className="text-sm text-gray-700">Active</label>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-col sm:flex-row gap-2">
                           <button
                             onClick={saveDiscountChanges}
-                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-1 transition-colors"
+                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-1 transition-colors w-full sm:w-auto"
                           >
                             <Save size={16} /> Save
                           </button>
                           <button
                             onClick={() => setEditingDiscount(null)}
-                            className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                            className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors w-full sm:w-auto"
                           >
                             Cancel
                           </button>
@@ -517,7 +517,7 @@ function AdminDashboard() {
                       </>
                     ) : (
                       <>
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                           <h3 className="font-semibold text-lg">{discount.title}</h3>
                           <span
                             className={`px-2 py-1 rounded-full text-xs ${
@@ -531,7 +531,7 @@ function AdminDashboard() {
                         <div className="text-3xl font-bold text-purple-600">Save {discount.discount}%</div>
                         <button
                           onClick={() => setEditingDiscount(key)}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-1 transition-colors"
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-1 transition-colors w-full sm:w-auto"
                         >
                           <Edit3 size={16} /> Edit
                         </button>

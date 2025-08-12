@@ -2,10 +2,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Instagram, Facebook, Youtube, Award, Camera, Heart, X } from "lucide-react";
 import { Helmet } from "react-helmet";
 import { useState } from "react";
-import hituPhoto from "../assets/hitu-profile.png";
-import cert1 from "../assets/certificate1.jpeg";
-import cert2 from "../assets/certificate2.jpeg";
-import cert3 from "../assets/certificate3.jpeg";
+import hituPhoto from "../assets/hitu-profile.webp";
+import cert1 from "../assets/certificate1.webp";
+import cert2 from "../assets/certificate2.webp";
+import cert3 from "../assets/certificate3.webp";
 
 function About() {
     const [selectedImage, setSelectedImage] = useState(null);

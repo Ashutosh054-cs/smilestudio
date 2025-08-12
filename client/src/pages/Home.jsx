@@ -2,10 +2,10 @@ import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import { motion, AnimatePresence } from "framer-motion";
-import bg1 from "../assets/bg1.png";
-import bg2 from "../assets/bg2.jpeg";
-import bg3 from "../assets/bg3.jpg";
-import bg4 from "../assets/bg4.jpg";
+import bg1 from "../assets/bg1.webp";
+import bg2 from "../assets/bg2.webp";
+import bg3 from "../assets/bg3.webp";
+import bg4 from "../assets/bg4.webp";
 
 function Home() {
   const [currentText, setCurrentText] = useState("");
