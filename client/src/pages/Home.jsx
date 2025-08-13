@@ -267,7 +267,7 @@ function Home() {
       </Helmet>
 
       {/* HERO */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-32 mt-24">
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-32">
         <AnimatePresence>
           <motion.div
             key={bgIndex}
@@ -289,7 +289,7 @@ function Home() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.5 }}
-              className="absolute inset-0 z-20 flex items-center justify-center bg-black/80"
+              className="absolute inset-0 z-20 flex items-center justify-center bg-black/80 mt-18"
             >
               {renderGalleryContent()}
             </motion.div>

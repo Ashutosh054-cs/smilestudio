@@ -140,10 +140,11 @@ function AdminDashboard() {
   const handleFileUpload = (e) => {
     const file = e.target.files[0]
     if (file) {
-      const maxSize = activeMediaType === "videos" ? 100 * 1024 * 1024 : 10 * 1024 * 1024 // 100MB for videos, 10MB for others
+      // UPDATED: Set max size to 50MB for all media types for Free Tier
+      const maxSize = 50 * 1024 * 1024 // 50MB
       if (file.size > maxSize) {
         alert(
-          `File too large! Please choose a ${activeMediaType === "videos" ? "video under 100MB" : "file under 10MB"}.`,
+          `File too large! Please choose a file under 50MB.`,
         )
         e.target.value = ""
         return
@@ -178,7 +179,7 @@ function AdminDashboard() {
   }
 
   const uploadMediaToSupabase = async (file, mediaType) => {
-    const bucketName = `gallery-${mediaType === 'image' ? 'images' : mediaType === 'video' ? 'videos' : 'albums'}`   // gallery-images, gallery-videos, gallery-albums
+    const bucketName = `gallery-${mediaType === 'image' ? 'images' : mediaType === 'video' ? 'videos' : 'albums'}`
     const fileExt = file.name.split(".").pop()
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
 
@@ -237,11 +238,9 @@ function AdminDashboard() {
 
       // Add media-specific fields
       if (activeMediaType === "videos") {
-        // For videos, we could add duration detection here
-        insertData.duration = null // Could be enhanced with video metadata extraction
+        insertData.duration = null // Placeholder for duration
       } else if (activeMediaType === "albums") {
-        // For PDFs, we could add page count detection here
-        insertData.page_count = null // Could be enhanced with PDF metadata extraction
+        insertData.page_count = null // Placeholder for page count
       }
 
       const { data, error } = await supabase.from(tableName).insert([insertData]).select()
@@ -326,8 +325,6 @@ function AdminDashboard() {
     }
   }
 
-  // ... existing discount management functions ...
-
   const handleUpdateDiscount = (type, field, value) => {
     setDiscountSettings((prev) => ({
       ...prev,
@@ -366,10 +363,6 @@ function AdminDashboard() {
       localStorage.removeItem("adminToken")
       navigate("/")
     }
-  }
-
-  const goToHome = () => {
-    navigate("/")
   }
 
   return (
@@ -418,10 +411,11 @@ function AdminDashboard() {
         )}
 
         {/* Tabs */}
+        {/* RESPONSIVE: Change from horizontal to vertical on small screens */}
         <div className="flex flex-col sm:flex-row w-full sm:w-fit space-y-2 sm:space-y-0 sm:space-x-1 mb-8 bg-gray-200 p-1 rounded-lg">
           <button
             onClick={() => setActiveTab("gallery")}
-            className={`px-6 py-2 rounded-lg font-medium transition-all ${
+            className={`px-6 py-2 rounded-lg font-medium transition-all w-full ${
               activeTab === "gallery" ? "bg-white text-pink-600 shadow-sm" : "text-gray-600 hover:text-gray-800"
             }`}
           >
@@ -429,7 +423,7 @@ function AdminDashboard() {
           </button>
           <button
             onClick={() => setActiveTab("discounts")}
-            className={`px-6 py-2 rounded-lg font-medium transition-all ${
+            className={`px-6 py-2 rounded-lg font-medium transition-all w-full ${
               activeTab === "discounts" ? "bg-white text-pink-600 shadow-sm" : "text-gray-600 hover:text-gray-800"
             }`}
           >
@@ -440,13 +434,15 @@ function AdminDashboard() {
         {/* Gallery Management Tab */}
         {activeTab === "gallery" && (
           <div className="bg-white rounded-lg shadow-md p-6">
+            {/* RESPONSIVE: Adjust alignment and spacing for mobile */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full">
                 <h2 className="text-2xl font-semibold flex items-center gap-2">
                   <Camera className="text-pink-600" />
                   Gallery Management
                 </h2>
-                <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+                {/* RESPONSIVE: Make media type buttons wrap on smaller screens */}
+                <div className="flex flex-wrap gap-2 sm:space-x-1 sm:gap-0 bg-gray-100 p-1 rounded-lg w-full sm:w-auto">
                   {[
                     { key: "images", label: "Images", icon: Camera, count: galleryImages.length },
                     { key: "videos", label: "Videos", icon: Video, count: galleryVideos.length },
@@ -455,7 +451,7 @@ function AdminDashboard() {
                     <button
                       key={key}
                       onClick={() => setActiveMediaType(key)}
-                      className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                      className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 w-full sm:w-auto ${
                         activeMediaType === key
                           ? "bg-white text-pink-600 shadow-sm"
                           : "text-gray-600 hover:text-gray-800"
@@ -478,10 +474,11 @@ function AdminDashboard() {
             {showAddForm && (
               <div className="bg-gray-50 rounded-lg p-4 mb-6 border">
                 <h3 className="font-semibold mb-4">Add New {activeMediaType.slice(0, -1)}</h3>
-                <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                {/* RESPONSIVE: Make upload method buttons stack on mobile */}
+                <div className="flex flex-col sm:flex-row gap-2 mb-4">
                   <button
                     onClick={() => setUploadMethod("file")}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium w-full sm:w-auto ${
+                    className={`px-4 py-2 rounded-lg text-sm font-medium w-full ${
                       uploadMethod === "file" ? "bg-pink-600 text-white" : "bg-gray-200 text-gray-600"
                     }`}
                   >
@@ -489,13 +486,14 @@ function AdminDashboard() {
                   </button>
                   <button
                     onClick={() => setUploadMethod("url")}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium w-full sm:w-auto ${
+                    className={`px-4 py-2 rounded-lg text-sm font-medium w-full ${
                       uploadMethod === "url" ? "bg-pink-600 text-white" : "bg-gray-200 text-gray-600"
                     }`}
                   >
                     Enter {activeMediaType.slice(0, -1)} URL
                   </button>
                 </div>
+                {/* RESPONSIVE: Change form grid from 3 columns to 1 on mobile */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <input
                     type="text"
@@ -523,10 +521,9 @@ function AdminDashboard() {
                         onChange={handleFileUpload}
                         className="w-full p-3 border rounded-lg focus:outline-none focus:border-pink-500 file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-sm file:bg-pink-50 file:text-pink-700 hover:file:bg-pink-100"
                       />
+                      {/* UPDATED: File size text to reflect 50MB limit */}
                       <p className="text-xs text-gray-500 mt-1">
-                        {activeMediaType === "images" && "Max size: 5MB • Formats: JPG, PNG, WebP"}
-                        {activeMediaType === "videos" && "Max size: 100MB • Formats: MP4, MOV, AVI, WebM"}
-                        {activeMediaType === "albums" && "Max size: 10MB • Format: PDF only"}
+                        Max size: 50MB
                       </p>
                     </div>
                   ) : (
@@ -568,6 +565,7 @@ function AdminDashboard() {
                     )}
                   </div>
                 )}
+                {/* RESPONSIVE: Make action buttons stack on mobile */}
                 <div className="flex flex-col sm:flex-row gap-2 mt-4">
                   <button
                     onClick={handleAddMedia}
@@ -589,6 +587,7 @@ function AdminDashboard() {
               </div>
             )}
 
+            {/* RESPONSIVE: Change grid columns from 4 to 1 on mobile, then 2, then 3, etc. */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {getCurrentMediaData().map((item) => {
                 const MediaIcon = getMediaIcon(activeMediaType)
@@ -689,6 +688,7 @@ function AdminDashboard() {
               <Percent className="text-purple-600" />
               Discount Settings
             </h2>
+            {/* RESPONSIVE: Change grid from 2 columns to 1 on mobile */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {Object.entries(discountSettings).map(([key, discount]) => (
                 <div key={key} className="border border-gray-200 rounded-lg p-6">
@@ -737,16 +737,17 @@ function AdminDashboard() {
                           />
                           <label className="text-sm text-gray-700">Active</label>
                         </div>
+                        {/* RESPONSIVE: Make action buttons stack on mobile */}
                         <div className="flex flex-col sm:flex-row gap-2">
                           <button
                             onClick={saveDiscountChanges}
-                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-1 transition-colors w-full sm:w-auto"
+                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-1 transition-colors w-full"
                           >
                             <Save size={16} /> Save
                           </button>
                           <button
                             onClick={() => setEditingDiscount(null)}
-                            className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors w-full sm:w-auto"
+                            className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors w-full"
                           >
                             Cancel
                           </button>
