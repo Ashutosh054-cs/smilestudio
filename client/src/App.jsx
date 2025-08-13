@@ -17,6 +17,10 @@ import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
 import { Toaster } from 'react-hot-toast';
 
+// ✅ New pages for Video and Album
+import VideoPage from './pages/Videoapage';
+import AlbumPage from './pages/Albumpage';
+
 // Component to conditionally render Navbar
 function ConditionalNavbar() {
   const location = useLocation();
@@ -99,6 +103,11 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
+            {/* ✅ New routes for Video and Album pages */}
+            <Route path="/video/:id" element={<VideoPage />} />
+            <Route path="/album/:id" element={<AlbumPage />} />
+
           </Routes>
         </main>
         

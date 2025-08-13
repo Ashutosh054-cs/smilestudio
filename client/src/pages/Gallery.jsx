@@ -1,38 +1,63 @@
 "use client"
 import { useState, useEffect } from "react"
-import { Camera, Filter, X } from "lucide-react"
+import { Camera, Filter, X, Video, FileText, Play, Eye, ArrowRight } from "lucide-react"
+import { useNavigate } from "react-router-dom"
 import { supabase, handleSupabaseError, getImageUrl } from "../services/supabaseClient"
 
 function Gallery() {
   const [selectedCategory, setSelectedCategory] = useState("all")
+  const [selectedMediaType, setSelectedMediaType] = useState("all") // all, images, videos, albums
   const [selectedImage, setSelectedImage] = useState(null)
   const [galleryImages, setGalleryImages] = useState([])
+  const [galleryVideos, setGalleryVideos] = useState([])
+  const [galleryAlbums, setGalleryAlbums] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [imageLoadErrors, setImageLoadErrors] = useState(new Set())
+  const navigate = useNavigate()
 
   useEffect(() => {
-    fetchGalleryImages()
+    fetchAllGalleryData()
   }, [])
 
-  const fetchGalleryImages = async () => {
+  const fetchAllGalleryData = async () => {
     try {
       setError("")
       setLoading(true)
 
-      const { data, error } = await supabase
-        .from("gallery_images")
-        .select("*")
-        .order("created_at", { ascending: false })
+      // Fetch all media types in parallel
+      const [imagesResult, videosResult, albumsResult] = await Promise.allSettled([
+        supabase.from("gallery_images").select("*").order("created_at", { ascending: false }),
+        supabase.from("gallery_videos").select("*").order("created_at", { ascending: false }),
+        supabase.from("gallery_albums").select("*").order("created_at", { ascending: false }),
+      ])
 
-      if (error) throw error
+      // Handle images
+      if (imagesResult.status === "fulfilled" && !imagesResult.value.error) {
+        setGalleryImages(imagesResult.value.data || [])
+      } else {
+        console.error("Error fetching images:", imagesResult.reason || imagesResult.value?.error)
+      }
 
-      setGalleryImages(data || [])
+      // Handle videos
+      if (videosResult.status === "fulfilled" && !videosResult.value.error) {
+        setGalleryVideos(videosResult.value.data || [])
+      } else {
+        console.error("Error fetching videos:", videosResult.reason || videosResult.value?.error)
+      }
+
+      // Handle albums
+      if (albumsResult.status === "fulfilled" && !albumsResult.value.error) {
+        setGalleryAlbums(albumsResult.value.data || [])
+      } else {
+        console.error("Error fetching albums:", albumsResult.reason || albumsResult.value?.error)
+      }
+
       setImageLoadErrors(new Set())
     } catch (error) {
-      const errorMessage = handleSupabaseError(error, "fetching images")
+      const errorMessage = handleSupabaseError(error, "fetching gallery data")
       setError(errorMessage)
-      console.error("Error fetching images:", error)
+      console.error("Error fetching gallery data:", error)
     } finally {
       setLoading(false)
     }
@@ -85,25 +110,87 @@ function Gallery() {
   }
 
   const categories = [
-    { key: "all", label: "All Photos", count: galleryImages.length },
-    { key: "wedding", label: "Wedding", count: galleryImages.filter((img) => img.category === "wedding").length },
+    { key: "all", label: "All Categories", count: galleryImages.length + galleryVideos.length + galleryAlbums.length },
+    {
+      key: "wedding",
+      label: "Wedding",
+      count: [...galleryImages, ...galleryVideos, ...galleryAlbums].filter((item) => item.category === "wedding")
+        .length,
+    },
     {
       key: "prewedding",
       label: "Pre-Wedding",
-      count: galleryImages.filter((img) => img.category === "prewedding").length,
+      count: [...galleryImages, ...galleryVideos, ...galleryAlbums].filter((item) => item.category === "prewedding")
+        .length,
     },
     {
       key: "engagement",
       label: "Engagement",
-      count: galleryImages.filter((img) => img.category === "engagement").length,
+      count: [...galleryImages, ...galleryVideos, ...galleryAlbums].filter((item) => item.category === "engagement")
+        .length,
     },
-    { key: "portrait", label: "Portrait", count: galleryImages.filter((img) => img.category === "portrait").length },
-    { key: "event", label: "Events", count: galleryImages.filter((img) => img.category === "event").length },
-    { key: "maternity", label: "Maternity", count: galleryImages.filter((img) => img.category === "maternity").length },
+    {
+      key: "portrait",
+      label: "Portrait",
+      count: [...galleryImages, ...galleryVideos, ...galleryAlbums].filter((item) => item.category === "portrait")
+        .length,
+    },
+    {
+      key: "event",
+      label: "Events",
+      count: [...galleryImages, ...galleryVideos, ...galleryAlbums].filter((item) => item.category === "event").length,
+    },
+    {
+      key: "maternity",
+      label: "Maternity",
+      count: [...galleryImages, ...galleryVideos, ...galleryAlbums].filter((item) => item.category === "maternity")
+        .length,
+    },
   ]
 
-  const filteredImages =
-    selectedCategory === "all" ? galleryImages : galleryImages.filter((img) => img.category === selectedCategory)
+  const mediaTypes = [
+    {
+      key: "all",
+      label: "All Media",
+      icon: Camera,
+      count: galleryImages.length + galleryVideos.length + galleryAlbums.length,
+    },
+    { key: "images", label: "Images", icon: Camera, count: galleryImages.length },
+    { key: "videos", label: "Videos", icon: Video, count: galleryVideos.length },
+    { key: "albums", label: "Albums", icon: FileText, count: galleryAlbums.length },
+  ]
+
+  const getFilteredData = () => {
+    let allData = []
+
+    if (selectedMediaType === "all" || selectedMediaType === "images") {
+      allData = [...allData, ...galleryImages.map((item) => ({ ...item, type: "image" }))]
+    }
+    if (selectedMediaType === "all" || selectedMediaType === "videos") {
+      allData = [...allData, ...galleryVideos.map((item) => ({ ...item, type: "video" }))]
+    }
+    if (selectedMediaType === "all" || selectedMediaType === "albums") {
+      allData = [...allData, ...galleryAlbums.map((item) => ({ ...item, type: "album" }))]
+    }
+
+    if (selectedCategory === "all") {
+      return allData
+    }
+
+    return allData.filter((item) => item.category === selectedCategory)
+  }
+
+  const filteredData = getFilteredData()
+
+  const handleMediaClick = (item) => {
+    if (item.type === "image") {
+      setSelectedImage(item)
+    } else if (item.type === "video") {
+      navigate(`/video/${item.id}`)
+    } else if (item.type === "album") {
+      navigate(`/album/${item.id}`)
+    }
+  }
 
   if (loading) {
     return (
@@ -126,7 +213,7 @@ function Gallery() {
             <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-800">Our Gallery</h1>
           </div>
           <p className="text-gray-600 text-base md:text-lg max-w-2xl mx-auto">
-            Capturing beautiful moments and creating lasting memories
+            Capturing beautiful moments and creating lasting memories through images, videos, and albums
           </p>
           <div className="w-16 md:w-24 h-1 bg-gradient-to-r from-pink-500 to-purple-500 mx-auto mt-4 rounded-full"></div>
         </div>
@@ -138,6 +225,26 @@ function Gallery() {
           </div>
         )}
 
+        <div className="flex flex-wrap justify-center gap-3 mb-8">
+          {mediaTypes.map((mediaType) => {
+            const IconComponent = mediaType.icon
+            return (
+              <button
+                key={mediaType.key}
+                onClick={() => setSelectedMediaType(mediaType.key)}
+                className={`px-6 py-3 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2 ${
+                  selectedMediaType === mediaType.key
+                    ? "bg-pink-600 text-white shadow-lg scale-105"
+                    : "bg-white text-gray-600 hover:bg-pink-50 hover:text-pink-600 border border-gray-200"
+                }`}
+              >
+                <IconComponent size={16} />
+                {mediaType.label} ({mediaType.count})
+              </button>
+            )
+          })}
+        </div>
+
         {/* Category Filter */}
         <div className="flex flex-wrap justify-center gap-3 mb-12">
           {categories.map((category) => (
@@ -146,8 +253,8 @@ function Gallery() {
               onClick={() => setSelectedCategory(category.key)}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2 ${
                 selectedCategory === category.key
-                  ? "bg-pink-600 text-white shadow-lg scale-105"
-                  : "bg-white text-gray-600 hover:bg-pink-50 hover:text-pink-600 border border-gray-200"
+                  ? "bg-purple-600 text-white shadow-lg scale-105"
+                  : "bg-white text-gray-600 hover:bg-purple-50 hover:text-purple-600 border border-gray-200"
               }`}
             >
               <Filter size={14} />
@@ -156,32 +263,122 @@ function Gallery() {
           ))}
         </div>
 
-        {/* Gallery Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredImages.map((image) => {
-            const imageSrc = getImageSrc(image)
+          {filteredData.map((item) => {
+            const urlField = item.type === "image" ? "image_url" : item.type === "video" ? "video_url" : "album_url"
 
             return (
               <div
-                key={image.id}
+                key={`${item.type}-${item.id}`}
                 className="group cursor-pointer bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2"
-                onClick={() => setSelectedImage(image)}
+                onClick={() => handleMediaClick(item)}
               >
                 <div className="relative w-full h-64 overflow-hidden">
-                  <img
-                    src={imageSrc || "/placeholder.svg"}
-                    alt={image.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    onError={() => handleImageError(image.id)}
-                    onLoad={() => handleImageLoad(image.id)}
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  {/* Image Display */}
+                  {item.type === "image" && (
+                    <img
+                      src={getImageSrc(item) || "/placeholder.svg"}
+                      alt={item.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      onError={() => handleImageError(item.id)}
+                      onLoad={() => handleImageLoad(item.id)}
+                      loading="lazy"
+                    />
+                  )}
+
+                  {/* Video Display */}
+                  {item.type === "video" && (
+                    <div className="relative w-full h-full bg-gray-900 flex items-center justify-center">
+                      {item.thumbnail_url ? (
+                        <img
+                          src={item.thumbnail_url || "/placeholder.svg"}
+                          alt={item.title}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.style.display = "none"
+                          }}
+                        />
+                      ) : (
+                        <div className="text-white flex flex-col items-center">
+                          <Video size={48} className="mb-2 opacity-70" />
+                          <span className="text-sm opacity-90">Video Preview</span>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="bg-black bg-opacity-60 rounded-full p-3 group-hover:bg-opacity-80 transition-all">
+                          <Play className="text-white" size={24} />
+                        </div>
+                      </div>
+                      <div className="absolute top-2 right-2 bg-black bg-opacity-70 text-white px-2 py-1 rounded text-xs">
+                        <Video size={12} className="inline mr-1" />
+                        VIDEO
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Album Display */}
+                  {item.type === "album" && (
+                    <div className="relative w-full h-full bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center">
+                      {item.thumbnail_url ? (
+                        <img
+                          src={item.thumbnail_url || "/placeholder.svg"}
+                          alt={item.title}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.style.display = "none"
+                          }}
+                        />
+                      ) : (
+                        <div className="text-red-600 flex flex-col items-center">
+                          <FileText size={48} className="mb-2" />
+                          <span className="text-sm">PDF Album</span>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="bg-red-600 bg-opacity-80 rounded-full p-3 group-hover:bg-opacity-90 transition-all">
+                          <Eye className="text-white" size={24} />
+                        </div>
+                      </div>
+                      <div className="absolute top-2 right-2 bg-red-600 bg-opacity-90 text-white px-2 py-1 rounded text-xs">
+                        <FileText size={12} className="inline mr-1" />
+                        ALBUM
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Hover overlay for all types */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="absolute bottom-4 left-4 right-4">
+                      <div className="flex items-center justify-between text-white">
+                        <span className="text-sm font-medium">
+                          {item.type === "image" ? "View Image" : item.type === "video" ? "Watch Video" : "View Album"}
+                        </span>
+                        <ArrowRight size={16} />
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="p-4">
-                  <h3 className="font-semibold text-gray-800 mb-2">{image.title}</h3>
-                  <p className="text-sm text-gray-500 capitalize">{image.category}</p>
+                  <h3 className="font-semibold text-gray-800 mb-2">{item.title}</h3>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500 capitalize">{item.category}</span>
+                    <div className="flex items-center gap-1 text-xs text-gray-400">
+                      {item.type === "image" && <Camera size={12} />}
+                      {item.type === "video" && <Video size={12} />}
+                      {item.type === "album" && <FileText size={12} />}
+                      <span className="capitalize">{item.type}</span>
+                    </div>
+                  </div>
+                  {/* Additional metadata */}
+                  {item.type === "video" && item.duration && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      Duration: {Math.floor(item.duration / 60)}:{(item.duration % 60).toString().padStart(2, "0")}
+                    </div>
+                  )}
+                  {item.type === "album" && item.page_count && (
+                    <div className="text-xs text-gray-500 mt-1">Pages: {item.page_count}</div>
+                  )}
                 </div>
               </div>
             )
@@ -189,16 +386,18 @@ function Gallery() {
         </div>
 
         {/* Empty State */}
-        {filteredImages.length === 0 && !loading && (
+        {filteredData.length === 0 && !loading && (
           <div className="text-center py-20">
             <Camera className="mx-auto text-gray-400 mb-4" size={64} />
-            <h3 className="text-xl font-semibold text-gray-600 mb-2">No photos found</h3>
-            <p className="text-gray-500 mb-4">No images available in this category yet.</p>
+            <h3 className="text-xl font-semibold text-gray-600 mb-2">No media found</h3>
+            <p className="text-gray-500 mb-4">
+              No {selectedMediaType === "all" ? "media" : selectedMediaType} available in this category yet.
+            </p>
           </div>
         )}
       </div>
 
-      {/* Image Modal */}
+      {/* Image Modal - Only for images */}
       {selectedImage && (
         <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4">
           <div className="relative max-w-4xl max-h-full">
