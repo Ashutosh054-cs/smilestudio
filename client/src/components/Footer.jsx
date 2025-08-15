@@ -60,7 +60,7 @@ function Footer() {
               </li>
               <li className="flex items-center space-x-3">
                 <Mail size={16} className="text-pink-400" />
-                <span className="text-gray-300">Picturesmile321@gmail.com</span>
+                <span className="text-gray-300">picturesmile321@gmail.com</span>
               </li>
               <li className="flex items-start space-x-3">
                 <MapPin size={16} className="text-pink-400 mt-1" />

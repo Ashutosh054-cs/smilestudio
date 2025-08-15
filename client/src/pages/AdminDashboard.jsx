@@ -14,6 +14,8 @@ import {
   Video,
   FileText,
   Play,
+  Upload,
+  X,
 } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { supabase, handleSupabaseError } from "../services/supabaseClient"
@@ -120,6 +122,16 @@ function AdminDashboard() {
     file: null,
     type: "image",
   })
+  
+  // NEW: State for bulk upload
+  const [bulkFiles, setBulkFiles] = useState([])
+  const [bulkUploadSettings, setBulkUploadSettings] = useState({
+    category: "wedding",
+    titlePrefix: "",
+  })
+  const [showBulkUpload, setShowBulkUpload] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 })
+  
   const [showAddForm, setShowAddForm] = useState(false)
   const [uploadMethod, setUploadMethod] = useState("file")
   const categories = ["wedding", "prewedding", "engagement", "event", "portrait", "maternity", "other"]
@@ -160,7 +172,70 @@ function AdminDashboard() {
     }
   }
 
-  // **NEW CODE:** Function to generate video thumbnail
+  // NEW: Handle bulk file selection
+  const handleBulkFileUpload = (e) => {
+    const files = Array.from(e.target.files)
+    const maxSize = 50 * 1024 * 1024
+    const validFiles = []
+
+    for (const file of files) {
+      if (file.size > maxSize) {
+        alert(`File ${file.name} is too large! Please choose files under 50MB.`)
+        continue
+      }
+
+      let isValidType = false
+      let mediaType = "image"
+      
+      if (activeMediaType === "images" && file.type.startsWith("image/")) {
+        isValidType = true
+        mediaType = "image"
+      } else if (activeMediaType === "videos" && file.type.startsWith("video/")) {
+        isValidType = true
+        mediaType = "video"
+      } else if (activeMediaType === "albums" && file.type === "application/pdf") {
+        isValidType = true
+        mediaType = "album"
+      }
+
+      if (isValidType) {
+        validFiles.push({
+          file,
+          name: file.name,
+          size: file.size,
+          type: mediaType,
+          preview: URL.createObjectURL(file),
+          title: bulkUploadSettings.titlePrefix ? `${bulkUploadSettings.titlePrefix} ${file.name.split('.')[0]}` : file.name.split('.')[0]
+        })
+      } else {
+        alert(`File ${file.name} is not a valid ${activeMediaType === "images" ? "image" : activeMediaType === "videos" ? "video" : "PDF"} file!`)
+      }
+    }
+
+    setBulkFiles(prev => [...prev, ...validFiles])
+    e.target.value = ""
+  }
+
+  // NEW: Remove file from bulk upload list
+  const removeBulkFile = (index) => {
+    setBulkFiles(prev => {
+      const newFiles = [...prev]
+      URL.revokeObjectURL(newFiles[index].preview)
+      newFiles.splice(index, 1)
+      return newFiles
+    })
+  }
+
+  // NEW: Update bulk file title
+  const updateBulkFileTitle = (index, newTitle) => {
+    setBulkFiles(prev => {
+      const newFiles = [...prev]
+      newFiles[index].title = newTitle
+      return newFiles
+    })
+  }
+
+  // Function to generate video thumbnail
   const generateVideoThumbnail = async (videoFile) => {
     return new Promise((resolve, reject) => {
       const video = document.createElement('video');
@@ -185,7 +260,7 @@ function AdminDashboard() {
     });
   };
 
-  // **UPDATED:** Upload function now handles video thumbnails
+  // Upload function now handles video thumbnails
   const uploadMediaToSupabase = async (file, mediaType, thumbnailBlob = null) => {
     const bucketName = `gallery-${mediaType === 'image' ? 'images' : mediaType === 'video' ? 'videos' : 'albums'}`
     const fileExt = file.name.split(".").pop()
@@ -212,7 +287,88 @@ function AdminDashboard() {
     return { publicUrl, fileName, thumbnailUrl }
   }
 
-  // **UPDATED:** handleAddMedia to create and upload thumbnail for videos
+  // NEW: Handle bulk upload
+  const handleBulkUpload = async () => {
+    if (bulkFiles.length === 0) return
+    
+    setLoading(true)
+    setError("")
+    setUploadProgress({ current: 0, total: bulkFiles.length })
+    
+    try {
+      let tableName = ""
+      let urlField = ""
+
+      switch (activeMediaType) {
+        case "images":
+          tableName = "gallery_images"
+          urlField = "image_url"
+          break
+        case "videos":
+          tableName = "gallery_videos"
+          urlField = "video_url"
+          break
+        case "albums":
+          tableName = "gallery_albums"
+          urlField = "album_url"
+          break
+      }
+
+      const uploadPromises = bulkFiles.map(async (fileItem, index) => {
+        try {
+          let thumbnailBlob = null
+          if (activeMediaType === "videos") {
+            thumbnailBlob = await generateVideoThumbnail(fileItem.file)
+          }
+
+          const uploadResult = await uploadMediaToSupabase(fileItem.file, fileItem.type, thumbnailBlob)
+          
+          const insertData = {
+            title: fileItem.title,
+            category: bulkUploadSettings.category,
+            [urlField]: uploadResult.publicUrl,
+            storage_path: uploadResult.fileName,
+            file_size: fileItem.file.size,
+          }
+
+          if (activeMediaType === "videos") {
+            insertData.duration = null
+            insertData.thumbnail_url = uploadResult.thumbnailUrl
+          } else if (activeMediaType === "albums") {
+            insertData.page_count = null
+          }
+
+          const { data, error } = await supabase.from(tableName).insert([insertData]).select()
+          if (error) throw error
+
+          setUploadProgress(prev => ({ ...prev, current: prev.current + 1 }))
+          
+          return data[0]
+        } catch (error) {
+          console.error(`Error uploading ${fileItem.name}:`, error)
+          throw error
+        }
+      })
+
+      await Promise.all(uploadPromises)
+      
+      // Clean up preview URLs
+      bulkFiles.forEach(fileItem => URL.revokeObjectURL(fileItem.preview))
+      
+      await fetchAllMedia()
+      setBulkFiles([])
+      setShowBulkUpload(false)
+      setUploadProgress({ current: 0, total: 0 })
+      
+      alert(`Successfully uploaded ${bulkFiles.length} ${activeMediaType}!`)
+    } catch (error) {
+      const errorMessage = handleSupabaseError(error, `bulk uploading ${activeMediaType}`)
+      setError(errorMessage)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleAddMedia = async () => {
     if (!newMedia.title || (!newMedia.url && !newMedia.file)) return
     setLoading(true)
@@ -276,7 +432,6 @@ function AdminDashboard() {
     }
   }
 
-  // **UPDATED:** handleDeleteMedia to also remove the thumbnail
   const handleDeleteMedia = async (id, mediaUrl, storagePath, mediaType, thumbnailUrl) => {
     if (!window.confirm(`Are you sure you want to delete this ${mediaType.slice(0, -1)}?`)) return
     try {
@@ -300,6 +455,7 @@ function AdminDashboard() {
       setError(errorMessage)
     }
   }
+  
   const getCurrentMediaData = () => {
     switch (activeMediaType) {
       case "images":
@@ -312,6 +468,7 @@ function AdminDashboard() {
         return []
     }
   }
+  
   const getMediaIcon = (type) => {
     switch (type) {
       case "images":
@@ -324,6 +481,7 @@ function AdminDashboard() {
         return Camera
     }
   }
+  
   const getAcceptTypes = () => {
     switch (activeMediaType) {
       case "images":
@@ -336,12 +494,14 @@ function AdminDashboard() {
         return "image/*"
     }
   }
+  
   const handleUpdateDiscount = (type, field, value) => {
     setDiscountSettings((prev) => ({
       ...prev,
       [type]: { ...prev[type], [field]: value },
     }))
   }
+  
   const saveDiscountChanges = async () => {
     try {
       setError("")
@@ -363,12 +523,14 @@ function AdminDashboard() {
       setError(errorMessage)
     }
   }
+  
   const handleLogout = () => {
     if (window.confirm("Are you sure you want to logout?")) {
       localStorage.removeItem("adminToken")
       navigate("/")
     }
   }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm border-b">
@@ -400,6 +562,7 @@ function AdminDashboard() {
           </div>
         </div>
       </header>
+      
       <div className="max-w-7xl mx-auto px-4 py-8">
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
@@ -410,6 +573,7 @@ function AdminDashboard() {
             </div>
           </div>
         )}
+        
         <div className="flex flex-col sm:flex-row w-full sm:w-fit space-y-2 sm:space-y-0 sm:space-x-1 mb-8 bg-gray-200 p-1 rounded-lg">
           <button
             onClick={() => setActiveTab("gallery")}
@@ -428,6 +592,7 @@ function AdminDashboard() {
             Discount Settings
           </button>
         </div>
+
         {activeTab === "gallery" && (
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
@@ -457,13 +622,23 @@ function AdminDashboard() {
                   ))}
                 </div>
               </div>
-              <button
-                onClick={() => setShowAddForm(true)}
-                className="px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 flex items-center gap-2 transition-colors w-full sm:w-auto"
-              >
-                <Plus size={16} /> Add New {activeMediaType.slice(0, -1)}
-              </button>
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <button
+                  onClick={() => setShowAddForm(true)}
+                  className="px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 flex items-center gap-2 transition-colors w-full sm:w-auto"
+                >
+                  <Plus size={16} /> Add Single
+                </button>
+                <button
+                  onClick={() => setShowBulkUpload(true)}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 transition-colors w-full sm:w-auto"
+                >
+                  <Upload size={16} /> Bulk Upload
+                </button>
+              </div>
             </div>
+
+            {/* Single Upload Form */}
             {showAddForm && (
               <div className="bg-gray-50 rounded-lg p-4 mb-6 border">
                 <h3 className="font-semibold mb-4">Add New {activeMediaType.slice(0, -1)}</h3>
@@ -573,6 +748,169 @@ function AdminDashboard() {
                 </div>
               </div>
             )}
+
+            {/* NEW: Bulk Upload Form */}
+            {showBulkUpload && (
+              <div className="bg-purple-50 rounded-lg p-4 mb-6 border border-purple-200">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-purple-800">Bulk Upload {activeMediaType}</h3>
+                  <button
+                    onClick={() => {
+                      setShowBulkUpload(false)
+                      setBulkFiles([])
+                      bulkFiles.forEach(fileItem => URL.revokeObjectURL(fileItem.preview))
+                    }}
+                    className="text-purple-600 hover:text-purple-800"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                {/* Bulk Upload Settings */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-purple-700 mb-1">Default Category</label>
+                    <select
+                      value={bulkUploadSettings.category}
+                      onChange={(e) => setBulkUploadSettings({ ...bulkUploadSettings, category: e.target.value })}
+                      className="w-full p-3 border rounded-lg focus:outline-none focus:border-purple-500"
+                    >
+                      {categories.map((cat) => (
+                        <option key={cat} value={cat} className="capitalize">
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-purple-700 mb-1">Title Prefix (Optional)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g., Wedding Album"
+                      value={bulkUploadSettings.titlePrefix}
+                      onChange={(e) => setBulkUploadSettings({ ...bulkUploadSettings, titlePrefix: e.target.value })}
+                      className="w-full p-3 border rounded-lg focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+                </div>
+
+                {/* File Selection */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-purple-700 mb-2">
+                    Select Multiple {activeMediaType}
+                  </label>
+                  <input
+                    type="file"
+                    multiple
+                    accept={getAcceptTypes()}
+                    onChange={handleBulkFileUpload}
+                    className="w-full p-3 border-2 border-dashed border-purple-300 rounded-lg focus:outline-none focus:border-purple-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+                  />
+                  <p className="text-xs text-purple-600 mt-1">
+                    Select multiple files. Max size per file: 50MB
+                  </p>
+                </div>
+
+                {/* Upload Progress */}
+                {loading && uploadProgress.total > 0 && (
+                  <div className="mb-4 bg-white rounded-lg p-4 border">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">Uploading...</span>
+                      <span className="text-sm text-gray-600">
+                        {uploadProgress.current} of {uploadProgress.total}
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-purple-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Selected Files Preview */}
+                {bulkFiles.length > 0 && (
+                  <div className="mb-4">
+                    <h4 className="font-medium text-purple-700 mb-2">
+                      Selected Files ({bulkFiles.length})
+                    </h4>
+                    <div className="max-h-60 overflow-y-auto bg-white rounded-lg border">
+                      {bulkFiles.map((fileItem, index) => (
+                        <div key={index} className="p-3 border-b border-gray-100 last:border-b-0">
+                          <div className="flex items-center gap-3">
+                            {/* File Preview */}
+                            <div className="flex-shrink-0">
+                              {activeMediaType === "images" && (
+                                <img 
+                                  src={fileItem.preview} 
+                                  alt={fileItem.name}
+                                  className="w-12 h-12 object-cover rounded border"
+                                />
+                              )}
+                              {activeMediaType === "videos" && (
+                                <div className="w-12 h-12 bg-gray-900 rounded border flex items-center justify-center">
+                                  <Video className="text-white" size={16} />
+                                </div>
+                              )}
+                              {activeMediaType === "albums" && (
+                                <div className="w-12 h-12 bg-red-100 rounded border flex items-center justify-center">
+                                  <FileText className="text-red-600" size={16} />
+                                </div>
+                              )}
+                            </div>
+
+                            {/* File Info */}
+                            <div className="flex-grow min-w-0">
+                              <input
+                                type="text"
+                                value={fileItem.title}
+                                onChange={(e) => updateBulkFileTitle(index, e.target.value)}
+                                className="w-full p-2 border rounded text-sm focus:outline-none focus:border-purple-500"
+                                placeholder="Enter title..."
+                              />
+                              <p className="text-xs text-gray-500 mt-1 truncate">
+                                {fileItem.name} • {(fileItem.size / (1024 * 1024)).toFixed(1)} MB
+                              </p>
+                            </div>
+
+                            {/* Remove Button */}
+                            <button
+                              onClick={() => removeBulkFile(index)}
+                              className="flex-shrink-0 p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <button
+                    onClick={handleBulkUpload}
+                    disabled={bulkFiles.length === 0 || loading}
+                    className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors w-full sm:w-auto"
+                  >
+                    {loading ? `Uploading... (${uploadProgress.current}/${uploadProgress.total})` : `Upload ${bulkFiles.length} Files`}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setBulkFiles([])
+                      bulkFiles.forEach(fileItem => URL.revokeObjectURL(fileItem.preview))
+                    }}
+                    disabled={loading}
+                    className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 disabled:bg-gray-400 transition-colors w-full sm:w-auto"
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {getCurrentMediaData().map((item) => {
                 const MediaIcon = getMediaIcon(activeMediaType)
@@ -664,6 +1002,7 @@ function AdminDashboard() {
             )}
           </div>
         )}
+
         {activeTab === "discounts" && (
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-2xl font-semibold mb-6 flex items-center gap-2">
