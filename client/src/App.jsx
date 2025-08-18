@@ -16,6 +16,7 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
 import { Toaster } from 'react-hot-toast';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // ✅ New pages for Video and Album
 import VideoPage from './pages/Videoapage';
@@ -98,7 +99,9 @@ function App() {
                 <ProtectedRoute>
                   {/* No navbar here */}
                   <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
-                    <AdminDashboard />
+                    <ErrorBoundary>
+                      <AdminDashboard />
+                    </ErrorBoundary>
                   </div>
                 </ProtectedRoute>
               }

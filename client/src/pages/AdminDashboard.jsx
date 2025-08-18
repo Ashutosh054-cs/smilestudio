@@ -17,33 +17,49 @@ import {
   Upload,
   X,
 } from "lucide-react"
-import { useNavigate } from "react-router-dom"
+// Note: If using React Router, make sure you have proper routing setup
+// For now, using window.location for navigation
 import { supabase, handleSupabaseError } from "../services/supabaseClient"
 
 function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("gallery")
   const [activeMediaType, setActiveMediaType] = useState("images")
-  const navigate = useNavigate()
+  // const navigate = useNavigate() // Commented out for direct navigation
   const [error, setError] = useState("")
 
+  // Update your main useEffect for admin token check
   useEffect(() => {
-    const adminToken = localStorage.getItem("adminToken")
-    if (!adminToken) {
-      navigate("/login")
+    const checkAuth = () => {
+      const adminToken = localStorage.getItem("adminToken")
+      if (!adminToken) {
+        window.location.href = "/login"
+      }
     }
-  }, [navigate])
+    checkAuth()
+  }, [])
 
   const [galleryImages, setGalleryImages] = useState([])
   const [galleryVideos, setGalleryVideos] = useState([])
   const [galleryAlbums, setGalleryAlbums] = useState([])
+  const [collections, setCollections] = useState([]) // New state for collections
   const [loading, setLoading] = useState(false)
 
+  // Update your media fetch useEffect
   useEffect(() => {
-    fetchAllMedia()
+    let mounted = true
+    const loadMedia = async () => {
+      if (mounted) {
+        await fetchAllMedia()
+      }
+    }
+    loadMedia()
+    return () => {
+      mounted = false
+    }
   }, [])
 
   const fetchAllMedia = async () => {
-    await Promise.all([fetchGalleryImages(), fetchGalleryVideos(), fetchGalleryAlbums()])
+    await Promise.all([fetchGalleryImages(), fetchGalleryVideos(), fetchGalleryAlbums(), fetchCollections()]) // Fetch collections
   }
 
   const fetchGalleryImages = async () => {
@@ -87,10 +103,34 @@ function AdminDashboard() {
     }
   }
 
+  // NEW: Fetch collections
+  const fetchCollections = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("gallery_collections")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setCollections(data || []);
+    } catch (error) {
+      console.error("Error fetching collections:", error)
+    }
+  }
+
   const [discountSettings, setDiscountSettings] = useState({})
 
+  // Update your discount settings useEffect
   useEffect(() => {
-    fetchDiscountSettings()
+    let mounted = true
+    const loadDiscounts = async () => {
+      if (mounted) {
+        await fetchDiscountSettings()
+      }
+    }
+    loadDiscounts()
+    return () => {
+      mounted = false
+    }
   }, [])
 
   const fetchDiscountSettings = async () => {
@@ -128,6 +168,8 @@ function AdminDashboard() {
   const [bulkUploadSettings, setBulkUploadSettings] = useState({
     category: "wedding",
     titlePrefix: "",
+    collection: "", // For collection/segment name
+    useCollection: false // Toggle for using collections
   })
   const [showBulkUpload, setShowBulkUpload] = useState(false)
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 })
@@ -289,83 +331,102 @@ function AdminDashboard() {
 
   // NEW: Handle bulk upload
   const handleBulkUpload = async () => {
-    if (bulkFiles.length === 0) return
-    
-    setLoading(true)
-    setError("")
-    setUploadProgress({ current: 0, total: bulkFiles.length })
-    
+    if (bulkFiles.length === 0) {
+      setError("No files selected for bulk upload.");
+      return;
+    }
+
+    if (bulkUploadSettings.useCollection && !bulkUploadSettings.collection) {
+      setError("Please enter a collection name.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setUploadProgress({ current: 0, total: bulkFiles.length });
+
     try {
-      let tableName = ""
-      let urlField = ""
+      let collectionId = null;
+      let firstImageUrl = null;
 
-      switch (activeMediaType) {
-        case "images":
-          tableName = "gallery_images"
-          urlField = "image_url"
-          break
-        case "videos":
-          tableName = "gallery_videos"
-          urlField = "video_url"
-          break
-        case "albums":
-          tableName = "gallery_albums"
-          urlField = "album_url"
-          break
-      }
-
-      const uploadPromises = bulkFiles.map(async (fileItem, index) => {
+      for (let i = 0; i < bulkFiles.length; i++) {
+        const fileItem = bulkFiles[i];
         try {
-          let thumbnailBlob = null
+          let thumbnailBlob = null;
           if (activeMediaType === "videos") {
-            thumbnailBlob = await generateVideoThumbnail(fileItem.file)
+            try {
+              thumbnailBlob = await generateVideoThumbnail(fileItem.file);
+            } catch (thumbErr) {
+              console.warn("Thumbnail generation failed:", thumbErr);
+            }
           }
 
-          const uploadResult = await uploadMediaToSupabase(fileItem.file, fileItem.type, thumbnailBlob)
-          
-          const insertData = {
+          const { publicUrl, fileName, thumbnailUrl } = await uploadMediaToSupabase(
+            fileItem.file,
+            fileItem.type,
+            thumbnailBlob
+          );
+
+          // Store first image URL for collection thumbnail
+          if (i === 0 && activeMediaType === "images") {
+            firstImageUrl = publicUrl;
+          }
+
+          // Create collection if this is the first file and collection is enabled
+          if (i === 0 && bulkUploadSettings.useCollection) {
+            const collection = await createCollection(
+              bulkUploadSettings.collection,
+              bulkUploadSettings.category,
+              firstImageUrl
+            );
+            collectionId = collection.id;
+          }
+
+          // Prepare record data
+          const recordData = {
             title: fileItem.title,
             category: bulkUploadSettings.category,
-            [urlField]: uploadResult.publicUrl,
-            storage_path: uploadResult.fileName,
-            file_size: fileItem.file.size,
+            storage_path: fileName,
+            collection_id: collectionId,
+            created_at: new Date().toISOString()
+          };
+
+          if (activeMediaType === "images") {
+            recordData.image_url = publicUrl;
+          } else if (activeMediaType === "videos") {
+            recordData.video_url = publicUrl;
+            recordData.thumbnail_url = thumbnailUrl;
           }
 
-          if (activeMediaType === "videos") {
-            insertData.duration = null
-            insertData.thumbnail_url = uploadResult.thumbnailUrl
-          } else if (activeMediaType === "albums") {
-            insertData.page_count = null
-          }
-
-          const { data, error } = await supabase.from(tableName).insert([insertData]).select()
-          if (error) throw error
-
-          setUploadProgress(prev => ({ ...prev, current: prev.current + 1 }))
+          const tableName = `gallery_${activeMediaType}`;
+          const { error: insertError } = await supabase
+            .from(tableName)
+            .insert([recordData]);
           
-          return data[0]
-        } catch (error) {
-          console.error(`Error uploading ${fileItem.name}:`, error)
-          throw error
-        }
-      })
+          if (insertError) throw insertError;
 
-      await Promise.all(uploadPromises)
+          setUploadProgress(prev => ({ ...prev, current: i + 1 }));
+        } catch (err) {
+          console.error(`Error uploading file ${fileItem.name}:`, err);
+        }
+      }
+
+      await fetchAllMedia();
+      setBulkFiles([]);
+      setShowBulkUpload(false);
+      setBulkUploadSettings({
+        category: "wedding",
+        titlePrefix: "",
+        collection: "",
+        useCollection: false
+      });
       
-      // Clean up preview URLs
-      bulkFiles.forEach(fileItem => URL.revokeObjectURL(fileItem.preview))
-      
-      await fetchAllMedia()
-      setBulkFiles([])
-      setShowBulkUpload(false)
-      setUploadProgress({ current: 0, total: 0 })
-      
-      alert(`Successfully uploaded ${bulkFiles.length} ${activeMediaType}!`)
+      alert(`Successfully uploaded ${bulkFiles.length} files to collection!`);
     } catch (error) {
-      const errorMessage = handleSupabaseError(error, `bulk uploading ${activeMediaType}`)
-      setError(errorMessage)
+      setError(error.message || "Upload failed");
     } finally {
-      setLoading(false)
+      setLoading(false);
+      setUploadProgress({ current: 0, total: 0 });
     }
   }
 
@@ -464,6 +525,8 @@ function AdminDashboard() {
         return galleryVideos
       case "albums":
         return galleryAlbums
+      case "collections":
+        return collections
       default:
         return []
     }
@@ -527,7 +590,62 @@ function AdminDashboard() {
   const handleLogout = () => {
     if (window.confirm("Are you sure you want to logout?")) {
       localStorage.removeItem("adminToken")
-      navigate("/")
+      // navigate("/") // Using window.location instead
+      window.location.href = "/"
+    }
+  }
+
+  // Add after your other fetch functions
+  const createCollection = async (collectionName, category, firstImageUrl) => {
+    try {
+      const { data, error } = await supabase
+        .from('gallery_collections')
+        .insert([{
+          name: collectionName,
+          category: category,
+          thumbnail_url: firstImageUrl,
+          created_at: new Date().toISOString()
+        }])
+        .select();
+      if (error) throw error;
+      return data[0];
+    } catch (err) {
+      console.error('Error creating collection:', err);
+      throw err;
+    }
+  };
+
+  // Add state for collection viewer
+  const [viewingCollection, setViewingCollection] = useState(null);
+  const [collectionItems, setCollectionItems] = useState([]);
+
+  // Add this function to fetch collection items
+  const fetchCollectionItems = async (collectionId) => {
+    try {
+      const { data, error } = await supabase
+        .from("gallery_images")
+        .select("*")
+        .eq("collection_id", collectionId)
+        .order("created_at", { ascending: true });
+      
+      if (error) throw error;
+      setCollectionItems(data || []);
+    } catch (error) {
+      console.error("Error fetching collection items:", error);
+      setCollectionItems([]);
+    }
+  }
+
+  const getUrlField = (mediaType) => {
+    switch (mediaType) {
+      case "images":
+        return "image_url"
+      case "videos":
+        return "video_url"
+      case "albums":
+        return "album_url"
+      default:
+        return "url"
     }
   }
 
@@ -545,7 +663,7 @@ function AdminDashboard() {
             </div>
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
               <button
-                onClick={() => navigate("/")}
+                onClick={() => window.location.href = "/"}
                 className="flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors w-full sm:w-auto"
               >
                 <Home size={16} />
@@ -606,6 +724,7 @@ function AdminDashboard() {
                     { key: "images", label: "Images", icon: Camera, count: galleryImages.length },
                     { key: "videos", label: "Videos", icon: Video, count: galleryVideos.length },
                     { key: "albums", label: "Albums", icon: FileText, count: galleryAlbums.length },
+                    { key: "collections", label: "Collections", icon: FileText, count: collections.length }, // New
                   ].map(({ key, label, icon: Icon, count }) => (
                     <button
                       key={key}
@@ -704,11 +823,11 @@ function AdminDashboard() {
                     <p className="text-sm text-gray-600 mb-2">Preview:</p>
                     {activeMediaType === "images" && (
                       <img
-                        src={newMedia.url || "/placeholder.svg"}
+                        src={newMedia.url || "/api/placeholder/128/128"}
                         alt="Preview"
                         className="w-32 h-32 object-cover rounded-lg border"
                         onError={(e) => {
-                          e.target.src = "/placeholder.svg?height=128&width=128&text=Error Loading"
+                          e.target.src = "/api/placeholder/128/128"
                           setNewMedia({ ...newMedia, url: "" })
                         }}
                       />
@@ -791,6 +910,39 @@ function AdminDashboard() {
                       onChange={(e) => setBulkUploadSettings({ ...bulkUploadSettings, titlePrefix: e.target.value })}
                       className="w-full p-3 border rounded-lg focus:outline-none focus:border-purple-500"
                     />
+                  </div>
+                </div>
+
+                {/* NEW: Collection Settings */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <input
+                        type="checkbox"
+                        id="useCollection"
+                        checked={bulkUploadSettings.useCollection}
+                        onChange={(e) => setBulkUploadSettings(prev => ({
+                          ...prev,
+                          useCollection: e.target.checked
+                        }))}
+                        className="rounded text-purple-600"
+                      />
+                      <label htmlFor="useCollection" className="text-sm font-medium text-purple-700">
+                        Create Collection
+                      </label>
+                    </div>
+                    {bulkUploadSettings.useCollection && (
+                      <input
+                        type="text"
+                        placeholder="Collection Name (e.g., Raju's Wedding)"
+                        value={bulkUploadSettings.collection}
+                        onChange={(e) => setBulkUploadSettings(prev => ({
+                          ...prev,
+                          collection: e.target.value
+                        }))}
+                        className="w-full p-3 border rounded-lg focus:outline-none focus:border-purple-500"
+                      />
+                    )}
                   </div>
                 </div>
 
@@ -913,11 +1065,56 @@ function AdminDashboard() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {getCurrentMediaData().map((item) => {
-                const MediaIcon = getMediaIcon(activeMediaType)
-                const urlField =
-                  activeMediaType === "images" ? "image_url" : activeMediaType === "videos" ? "video_url" : "album_url"
+                if (activeMediaType === "collections") {
+                  return (
+                    <div
+                      key={item.id}
+                      className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                    >
+                      <div className="relative group">
+                        <div className="w-full h-48 bg-gradient-to-br from-purple-50 to-pink-50 relative">
+                          {item.thumbnail_url ? (
+                            <img
+                              src={item.thumbnail_url}
+                              alt={item.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.src = "/placeholder.jpg"
+                              }}
+                            />
+                          ) : (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <FileText size={48} className="text-purple-300" />
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="text-white text-center">
+                              <h3 className="font-semibold">{item.name}</h3>
+                              <p className="text-sm">View Collection</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="p-4">
+                        <h3 className="font-semibold mb-2">{item.name}</h3>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-500 capitalize">{item.category}</span>
+                          <button
+                            onClick={() => handleDeleteCollection(item.id)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                }
 
+                // Existing media item rendering...
                 return (
+                  // Your existing item rendering code
+                  // ... keep your current code for images, videos, and albums
                   <div
                     key={item.id}
                     className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
@@ -925,11 +1122,11 @@ function AdminDashboard() {
                     <div className="relative group">
                       {activeMediaType === "images" && (
                         <img
-                          src={item[urlField] || "/placeholder.svg"}
+                          src={item[getUrlField(activeMediaType)] || "/placeholder.jpg"}
                           alt={item.title}
                           className="w-full h-48 object-cover"
                           onError={(e) => {
-                            e.target.src = `/placeholder.svg?height=192&width=256&text=${encodeURIComponent(item.title)}`
+                            e.target.src = "/placeholder.jpg"
                           }}
                         />
                       )}
@@ -962,7 +1159,13 @@ function AdminDashboard() {
                       )}
                       <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                         <button
-                          onClick={() => handleDeleteMedia(item.id, item[urlField], item.storage_path, activeMediaType, item.thumbnail_url)}
+                          onClick={() => handleDeleteMedia(
+                            item.id, 
+                            item[getUrlField(activeMediaType)], 
+                            item.storage_path, 
+                            activeMediaType, 
+                            item.thumbnail_url
+                          )}
                           className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
                         >
                           <Trash2 size={16} />
@@ -984,7 +1187,9 @@ function AdminDashboard() {
                         {activeMediaType === "albums" && item.page_count && <div>Pages: {item.page_count}</div>}
                         {item.file_size && <div>Size: {(item.file_size / (1024 * 1024)).toFixed(1)} MB</div>}
                       </div>
-                      <p className="text-xs text-gray-500 mt-1 truncate">{item[urlField]}</p>
+                      <p className="text-xs text-gray-500 mt-1 truncate">
+                        {item[getUrlField(activeMediaType)]}
+                      </p>
                     </div>
                   </div>
                 )
@@ -1101,6 +1306,47 @@ function AdminDashboard() {
           </div>
         )}
       </div>
+
+      {/* Collection Viewer Modal */}
+      {viewingCollection && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-4 border-b flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-semibold">{viewingCollection.name}</h3>
+                <p className="text-sm text-gray-500 capitalize">{viewingCollection.category}</p>
+              </div>
+              <button
+                onClick={() => setViewingCollection(null)}
+                className="p-2 hover:bg-gray-100 rounded-full"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="p-4 overflow-y-auto max-h-[calc(90vh-80px)]">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                {collectionItems.map((item) => (
+                  <div key={item.id} className="aspect-square rounded-lg overflow-hidden">
+                    <img
+                      src={item.image_url}
+                      alt={item.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ))}
+              </div>
+              
+              {collectionItems.length === 0 && (
+                <div className="text-center py-12 text-gray-500">
+                  <FileText size={48} className="mx-auto mb-4" />
+                  <p>No items in this collection</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

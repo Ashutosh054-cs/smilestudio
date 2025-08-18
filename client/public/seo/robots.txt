@@ -1,0 +1,21 @@
+User-agent: *
+Allow: /
+Allow: /gallery
+Allow: /about
+Allow: /contact
+Allow: /services
+Disallow: /admin
+Disallow: /login
+
+# Important pages
+Allow: /index.html
+Allow: /sitemap.xml
+
+# Sitemaps
+Sitemap: https://picturesmilestudio.com/sitemap.xml
+
+# Crawl-delay
+Crawl-delay: 10
+
+# Host
+Host: https://picturesmilestudio.com

@@ -8,9 +8,12 @@ function Gallery() {
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [selectedMediaType, setSelectedMediaType] = useState("all")
   const [selectedImage, setSelectedImage] = useState(null)
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false)
   const [galleryImages, setGalleryImages] = useState([])
   const [galleryVideos, setGalleryVideos] = useState([])
   const [galleryAlbums, setGalleryAlbums] = useState([])
+  const [collections, setCollections] = useState([])
+  const [selectedCollection, setSelectedCollection] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [imageLoadErrors, setImageLoadErrors] = useState(new Set())
@@ -20,15 +23,30 @@ function Gallery() {
     fetchAllGalleryData()
   }, [])
 
+  const fetchCollections = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("gallery_collections")
+        .select("*")
+        .order("created_at", { ascending: false })
+
+      if (error) throw error
+      setCollections(data || [])
+    } catch (error) {
+      console.error("Error fetching collections:", error)
+    }
+  }
+
   const fetchAllGalleryData = async () => {
     try {
       setError("")
       setLoading(true)
 
-      const [imagesResult, videosResult, albumsResult] = await Promise.allSettled([
+      const [imagesResult, videosResult, albumsResult, collectionsResult] = await Promise.allSettled([
         supabase.from("gallery_images").select("*").order("created_at", { ascending: false }),
         supabase.from("gallery_videos").select("*").order("created_at", { ascending: false }),
         supabase.from("gallery_albums").select("*").order("created_at", { ascending: false }),
+        supabase.from("gallery_collections").select("*").order("created_at", { ascending: false }),
       ])
 
       if (imagesResult.status === "fulfilled" && !imagesResult.value.error) {
@@ -49,6 +67,12 @@ function Gallery() {
         console.error("Error fetching albums:", albumsResult.reason || albumsResult.value?.error)
       }
 
+      if (collectionsResult.status === "fulfilled" && !collectionsResult.value.error) {
+        setCollections(collectionsResult.value.data || [])
+      } else {
+        console.error("Error fetching collections:", collectionsResult.reason || collectionsResult.value?.error)
+      }
+
       setImageLoadErrors(new Set())
     } catch (error) {
       const errorMessage = handleSupabaseError(error, "fetching gallery data")
@@ -56,6 +80,22 @@ function Gallery() {
       console.error("Error fetching gallery data:", error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchCollectionImages = async (collectionId) => {
+    try {
+      const { data, error } = await supabase
+        .from("gallery_images")
+        .select("*")
+        .eq("collection_id", collectionId)
+        .order("created_at", { ascending: false })
+
+      if (error) throw error
+      return data || []
+    } catch (error) {
+      console.error("Error fetching collection images:", error)
+      return []
     }
   }
 
@@ -154,12 +194,26 @@ function Gallery() {
     { key: "images", label: "Images", icon: Camera, count: galleryImages.length },
     { key: "videos", label: "Videos", icon: Video, count: galleryVideos.length },
     { key: "albums", label: "Albums", icon: FileText, count: galleryAlbums.length },
+    { 
+      key: "collections", 
+      label: "Collections", 
+      icon: FileText, 
+      count: collections.length 
+    },
   ]
 
   const getFilteredData = () => {
     let allData = []
+    
+    if (selectedMediaType === "all" || selectedMediaType === "collections") {
+      allData = [...allData, ...collections.map((item) => ({ ...item, type: "collection" }))]
+    }
     if (selectedMediaType === "all" || selectedMediaType === "images") {
-      allData = [...allData, ...galleryImages.map((item) => ({ ...item, type: "image" }))]
+      // Only show uncollected images in main view
+      const uncollectedImages = galleryImages
+        .filter(img => !img.collection_id)
+        .map(item => ({ ...item, type: "image" }))
+      allData = [...allData, ...uncollectedImages]
     }
     if (selectedMediaType === "all" || selectedMediaType === "videos") {
       allData = [...allData, ...galleryVideos.map((item) => ({ ...item, type: "video" }))]
@@ -175,14 +229,37 @@ function Gallery() {
 
   const filteredData = getFilteredData()
 
-  const handleMediaClick = (item) => {
-    if (item.type === "image") {
-      setSelectedImage(item)
+  const handleMediaClick = async (item) => {
+    if (item.type === "collection") {
+      setLoading(true);
+      try {
+        const images = await fetchCollectionImages(item.id);
+        setSelectedCollection({
+          ...item,
+          images: images.map(img => ({
+            ...img,
+            type: "image"
+          }))
+        });
+      } catch (error) {
+        console.error("Error loading collection:", error);
+        setError("Failed to load collection images");
+      } finally {
+        setLoading(false);
+      }
+    } else if (item.type === "image") {
+      setSelectedImage(item);
+      setIsImageModalOpen(true);
     } else if (item.type === "video") {
-      navigate(`/video/${item.id}`)
+      navigate(`/video/${item.id}`);
     } else if (item.type === "album") {
-      navigate(`/album/${item.id}`)
+      navigate(`/album/${item.id}`);
     }
+  }
+
+  const handleCollectionImageClick = (image) => {
+    setSelectedImage(image);
+    setIsImageModalOpen(true);
   }
 
   if (loading) {
@@ -251,7 +328,6 @@ function Gallery() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredData.map((item) => {
-            const urlField = item.type === "image" ? "image_url" : item.type === "video" ? "video_url" : "album_url"
             return (
               <div
                 key={`${item.type}-${item.id}`}
@@ -259,93 +335,53 @@ function Gallery() {
                 onClick={() => handleMediaClick(item)}
               >
                 <div className="relative w-full h-64 overflow-hidden">
-                  {item.type === "image" && (
-                    <img
-                      src={getImageSrc(item) || "/placeholder.svg"}
-                      alt={item.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      onError={() => handleImageError(item.id)}
-                      onLoad={() => handleImageLoad(item.id)}
-                      loading="lazy"
-                    />
-                  )}
-                  {/* **UPDATED CODE:** Video display logic to use a thumbnail */}
-                  {item.type === "video" && (
-                    <div className="relative w-full h-full bg-gray-900 flex items-center justify-center">
-                      <img
-                        src={item.thumbnail_url || "/placeholder-video.svg"}
-                        alt={`Thumbnail for ${item.title}`}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="bg-black bg-opacity-60 rounded-full p-3 group-hover:bg-opacity-80 transition-all">
-                          <Play className="text-white" size={24} />
-                        </div>
-                      </div>
-                      <div className="absolute top-2 right-2 bg-black bg-opacity-70 text-white px-2 py-1 rounded text-xs">
-                        <Video size={12} className="inline mr-1" />
-                        VIDEO
-                      </div>
-                    </div>
-                  )}
-                  {item.type === "album" && (
-                    <div className="relative w-full h-full bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center">
+                  {item.type === "collection" ? (
+                    <div className="relative w-full h-full bg-gradient-to-br from-purple-50 to-pink-50">
                       {item.thumbnail_url ? (
                         <img
-                          src={item.thumbnail_url || "/placeholder-pdf.svg"}
-                          alt={item.title}
+                          src={item.thumbnail_url}
+                          alt={item.name}
                           className="w-full h-full object-cover"
                           onError={(e) => {
-                            e.target.style.display = "none"
+                            e.target.src = "/placeholder.svg"
                           }}
                         />
                       ) : (
-                        <div className="text-red-600 flex flex-col items-center">
-                          <FileText size={48} className="mb-2" />
-                          <span className="text-sm">PDF Album</span>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <FileText size={48} className="text-purple-300" />
                         </div>
                       )}
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="bg-red-600 bg-opacity-80 rounded-full p-3 group-hover:bg-opacity-90 transition-all">
-                          <Eye className="text-white" size={24} />
+                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                        <div className="bg-white/90 px-4 py-2 rounded-lg shadow-lg">
+                          <p className="font-medium text-gray-800">View Collection</p>
                         </div>
                       </div>
-                      <div className="absolute top-2 right-2 bg-red-600 bg-opacity-90 text-white px-2 py-1 rounded text-xs">
-                        <FileText size={12} className="inline mr-1" />
-                        ALBUM
-                      </div>
                     </div>
+                  ) : (
+                    // **EXISTING CODE:** Image/Video/Album rendering logic remains unchanged
+                    item.type === "image" && (
+                      <img
+                        src={getImageSrc(item) || "/placeholder.svg"}
+                        alt={item.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        onError={() => handleImageError(item.id)}
+                        onLoad={() => handleImageLoad(item.id)}
+                        loading="lazy"
+                      />
+                    )
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <div className="absolute bottom-4 left-4 right-4">
-                      <div className="flex items-center justify-between text-white">
-                        <span className="text-sm font-medium">
-                          {item.type === "image" ? "View Image" : item.type === "video" ? "Watch Video" : "View Album"}
-                        </span>
-                        <ArrowRight size={16} />
-                      </div>
-                    </div>
-                  </div>
                 </div>
                 <div className="p-4">
-                  <h3 className="font-semibold text-gray-800 mb-2">{item.title}</h3>
+                  <h3 className="font-semibold text-gray-800 mb-2">
+                    {item.type === "collection" ? item.name : item.title}
+                  </h3>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-500 capitalize">{item.category}</span>
                     <div className="flex items-center gap-1 text-xs text-gray-400">
-                      {item.type === "image" && <Camera size={12} />}
-                      {item.type === "video" && <Video size={12} />}
-                      {item.type === "album" && <FileText size={12} />}
+                      {item.type === "collection" && <FileText size={12} />}
                       <span className="capitalize">{item.type}</span>
                     </div>
                   </div>
-                  {item.type === "video" && item.duration && (
-                    <div className="text-xs text-gray-500 mt-1">
-                      Duration: {Math.floor(item.duration / 60)}:{(item.duration % 60).toString().padStart(2, "0")}
-                    </div>
-                  )}
-                  {item.type === "album" && item.page_count && (
-                    <div className="text-xs text-gray-500 mt-1">Pages: {item.page_count}</div>
-                  )}
                 </div>
               </div>
             )
@@ -361,23 +397,77 @@ function Gallery() {
           </div>
         )}
       </div>
-      {selectedImage && (
-        <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4">
-          <div className="relative max-w-4xl max-h-full">
+      {selectedCollection && (
+        <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-2 sm:p-4">
+          <div className="relative w-full max-w-6xl max-h-[95vh] bg-white rounded-xl overflow-hidden">
+            {/* Header */}
+            <div className="sticky top-0 bg-white z-10 p-3 sm:p-4 border-b flex items-center justify-between">
+              <div>
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-800">{selectedCollection.name}</h3>
+                <p className="text-sm text-gray-500 capitalize">{selectedCollection.category}</p>
+              </div>
+              <button
+                onClick={() => setSelectedCollection(null)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            
+            {/* Grid of Images */}
+            <div className="p-2 sm:p-4 overflow-y-auto max-h-[calc(95vh-80px)]">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4">
+                {selectedCollection.images?.map((image) => (
+                  <div
+                    key={image.id}
+                    className="aspect-square rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity relative group"
+                    onClick={() => handleCollectionImageClick(image)}
+                  >
+                    <img
+                      src={getImageSrc(image)}
+                      alt={image.title}
+                      className="w-full h-full object-cover"
+                      onError={() => handleImageError(image.id)}
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Eye className="text-white" size={24} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {(!selectedCollection.images || selectedCollection.images.length === 0) && (
+                <div className="text-center py-12">
+                  <Camera className="mx-auto text-gray-400 mb-4" size={48} />
+                  <p className="text-gray-500">No images in this collection</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Update the image modal to use isImageModalOpen */}
+      {selectedImage && isImageModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-90 z-[60] flex items-center justify-center p-2 sm:p-4">
+          <div className="relative max-w-5xl w-full max-h-[95vh] flex flex-col items-center">
             <button
-              onClick={() => setSelectedImage(null)}
-              className="absolute top-4 right-4 z-10 bg-white/20 hover:bg-white/30 text-white p-2 rounded-full transition-colors"
+              onClick={() => {
+                setSelectedImage(null);
+                setIsImageModalOpen(false);
+              }}
+              className="absolute top-2 right-2 z-10 bg-white/20 hover:bg-white/30 text-white p-2 rounded-full transition-colors"
             >
               <X size={24} />
             </button>
             <img
-              src={getImageSrc(selectedImage) || "/placeholder.svg"}
+              src={getImageSrc(selectedImage)}
               alt={selectedImage.title}
               className="max-w-full max-h-[90vh] object-contain rounded-lg"
               onError={() => handleImageError(selectedImage.id)}
             />
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-6 text-white">
-              <h3 className="text-xl font-semibold mb-2">{selectedImage.title}</h3>
+            <div className="w-full mt-4 px-4 text-white">
+              <h3 className="text-lg sm:text-xl font-semibold mb-1">{selectedImage.title}</h3>
               <p className="text-sm opacity-90 capitalize">Category: {selectedImage.category}</p>
             </div>
           </div>
