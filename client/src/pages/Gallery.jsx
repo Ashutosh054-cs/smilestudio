@@ -357,18 +357,68 @@ function Gallery() {
                         </div>
                       </div>
                     </div>
-                  ) : (
-                    // **EXISTING CODE:** Image/Video/Album rendering logic remains unchanged
-                    item.type === "image" && (
+                  ) : item.type === "video" ? (
+                    <div className="relative w-full h-full bg-gradient-to-br from-gray-800 to-gray-900">
+                      {item.thumbnail_url ? (
+                        <img
+                          src={item.thumbnail_url}
+                          alt={item.title}
+                          className="w-full h-full object-cover opacity-80"
+                          onError={() => handleImageError(item.id)}
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Video className="text-white/50" size={48} />
+                        </div>
+                      )}
+                      {/* Video overlay with play button and title */}
+                      <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center gap-2">
+                        <div className="bg-white/20 p-3 rounded-full backdrop-blur-sm">
+                          <Play className="text-white" size={32} />
+                        </div>
+                        <span className="text-white text-sm font-medium bg-black/50 px-3 py-1 rounded-full">
+                          {item.title || "Watch Video"}
+                        </span>
+                      </div>
+                      {/* Video indicator */}
+                      <div className="absolute top-2 left-2 bg-black/50 px-2 py-1 rounded-lg flex items-center gap-1">
+                        <Video className="text-white" size={14} />
+                        <span className="text-white text-xs">Video</span>
+                      </div>
+                    </div>
+                  ) : item.type === "image" ? (
+                    <div className="relative">
                       <img
                         src={getImageSrc(item) || "/placeholder.svg"}
                         alt={item.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
                         onError={() => handleImageError(item.id)}
                         onLoad={() => handleImageLoad(item.id)}
                         loading="lazy"
                       />
-                    )
+                      {/* Image title overlay on hover */}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <span className="text-white text-sm font-medium bg-black/50 px-3 py-1 rounded-full">
+                          {item.title || "View Image"}
+                        </span>
+                      </div>
+                    </div>
+                  ) : item.type === "album" && (
+                    <div className="relative w-full h-full bg-gradient-to-br from-purple-50 to-pink-50">
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                        <div className="bg-white/90 p-3 rounded-full shadow-lg">
+                          <FileText className="text-purple-600" size={32} />
+                        </div>
+                        <span className="text-purple-800 text-sm font-medium bg-white/90 px-3 py-1 rounded-full shadow-sm">
+                          {item.title || "View Album"}
+                        </span>
+                      </div>
+                      {/* Album indicator */}
+                      <div className="absolute top-2 left-2 bg-purple-500/20 px-2 py-1 rounded-lg flex items-center gap-1">
+                        <FileText className="text-purple-600" size={14} />
+                        <span className="text-purple-800 text-xs">Album</span>
+                      </div>
+                    </div>
                   )}
                 </div>
                 <div className="p-4">

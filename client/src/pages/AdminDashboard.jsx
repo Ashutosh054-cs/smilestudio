@@ -20,6 +20,7 @@ import {
 // Note: If using React Router, make sure you have proper routing setup
 // For now, using window.location for navigation
 import { supabase, handleSupabaseError } from "../services/supabaseClient"
+import OptimizedImage from "../components/OptimizedImage"
 
 function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("gallery")
@@ -1064,136 +1065,113 @@ function AdminDashboard() {
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {getCurrentMediaData().map((item) => {
-                if (activeMediaType === "collections") {
-                  return (
-                    <div
-                      key={item.id}
-                      className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
-                    >
-                      <div className="relative group">
-                        <div className="w-full h-48 bg-gradient-to-br from-purple-50 to-pink-50 relative">
-                          {item.thumbnail_url ? (
-                            <img
-                              src={item.thumbnail_url}
-                              alt={item.name}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.target.src = "/placeholder.jpg"
-                              }}
-                            />
-                          ) : (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <FileText size={48} className="text-purple-300" />
-                            </div>
-                          )}
-                          <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <div className="text-white text-center">
-                              <h3 className="font-semibold">{item.name}</h3>
-                              <p className="text-sm">View Collection</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="p-4">
-                        <h3 className="font-semibold mb-2">{item.name}</h3>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-500 capitalize">{item.category}</span>
-                          <button
-                            onClick={() => handleDeleteCollection(item.id)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                }
-
-                // Existing media item rendering...
-                return (
-                  // Your existing item rendering code
-                  // ... keep your current code for images, videos, and albums
-                  <div
-                    key={item.id}
-                    className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
-                  >
-                    <div className="relative group">
-                      {activeMediaType === "images" && (
-                        <img
-                          src={item[getUrlField(activeMediaType)] || "/placeholder.jpg"}
-                          alt={item.title}
-                          className="w-full h-48 object-cover"
-                          onError={(e) => {
-                            e.target.src = "/placeholder.jpg"
-                          }}
-                        />
-                      )}
-                      {activeMediaType === "videos" && (
-                        <div className="relative w-full h-48 bg-gray-900 flex items-center justify-center">
-                          {item.thumbnail_url ? (
-                            <img
-                              src={item.thumbnail_url}
-                              alt={`Thumbnail for ${item.title}`}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="text-white flex flex-col items-center">
-                              <Video size={32} className="mb-2" />
-                              <span className="text-sm">Video Preview</span>
-                            </div>
-                          )}
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <Play className="text-white bg-black bg-opacity-50 rounded-full p-2" size={40} />
-                          </div>
-                        </div>
-                      )}
-                      {activeMediaType === "albums" && (
-                        <div className="w-full h-48 bg-red-50 flex items-center justify-center border-b">
-                          <div className="text-center">
-                            <FileText className="text-red-600 mx-auto mb-2" size={48} />
-                            <span className="text-sm text-red-700">PDF Album</span>
-                          </div>
-                        </div>
-                      )}
-                      <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <button
-                          onClick={() => handleDeleteMedia(
-                            item.id, 
-                            item[getUrlField(activeMediaType)], 
-                            item.storage_path, 
-                            activeMediaType, 
-                            item.thumbnail_url
-                          )}
-                          className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="p-3">
-                      <h3 className="font-semibold text-sm mb-1">{item.title}</h3>
-                      <span className="inline-block px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full capitalize">
-                        {item.category}
-                      </span>
-                      <div className="mt-2 text-xs text-gray-500">
-                        {activeMediaType === "videos" && item.duration && (
-                          <div>
-                            Duration: {Math.floor(item.duration / 60)}:
-                            {(item.duration % 60).toString().padStart(2, "0")}
+              {getCurrentMediaData().map((item) => (
+                <div
+                  key={item.id}
+                  className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                >
+                  {/* Media Preview Section */}
+                  <div className="relative group">
+                    {/* Image/Video/Album Preview */}
+                    {activeMediaType === "images" && (
+                      <OptimizedImage
+                        src={item[getUrlField(activeMediaType)] || "/placeholder.jpg"}
+                        alt={item.title}
+                        className="w-full h-48 object-cover"
+                        options={{
+                          quality: 0.8,
+                          maxWidth: 800,
+                          format: 'webp'
+                        }}
+                        onError={() => handleImageError(item.id)}
+                      />
+                    )}
+                    {activeMediaType === "videos" && (
+                      <div className="relative w-full h-48 bg-gray-900 flex items-center justify-center">
+                        {item.thumbnail_url ? (
+                          <img
+                            src={item.thumbnail_url}
+                            alt={`Thumbnail for ${item.title}`}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="text-white flex flex-col items-center">
+                            <Video size={32} className="mb-2" />
+                            <span className="text-sm">Video Preview</span>
                           </div>
                         )}
-                        {activeMediaType === "albums" && item.page_count && <div>Pages: {item.page_count}</div>}
-                        {item.file_size && <div>Size: {(item.file_size / (1024 * 1024)).toFixed(1)} MB</div>}
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Play className="text-white bg-black bg-opacity-50 rounded-full p-2" size={40} />
+                        </div>
                       </div>
-                      <p className="text-xs text-gray-500 mt-1 truncate">
-                        {item[getUrlField(activeMediaType)]}
-                      </p>
+                    )}
+                    {activeMediaType === "albums" && (
+                      <div className="w-full h-48 bg-red-50 flex items-center justify-center border-b">
+                        <div className="text-center">
+                          <FileText className="text-red-600 mx-auto mb-2" size={48} />
+                          <span className="text-sm text-red-700">PDF Album</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Delete overlay - visible on hover for desktop only */}
+                    <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex items-center justify-center">
+                      <button
+                        onClick={() => handleDeleteMedia(
+                          item.id, 
+                          item[getUrlField(activeMediaType)], 
+                          item.storage_path, 
+                          activeMediaType,
+                          item.thumbnail_url
+                        )}
+                        className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   </div>
-                )
-              })}
+
+                  {/* Content Section */}
+                  <div className="p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-semibold text-sm">{item.title}</h3>
+                      {/* Mobile delete button - always visible on mobile */}
+                      <button
+                        onClick={() => handleDeleteMedia(
+                          item.id,
+                          item[getUrlField(activeMediaType)],
+                          item.storage_path,
+                          activeMediaType,
+                          item.thumbnail_url
+                        )}
+                        className="sm:hidden p-1.5 text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+
+                    <span className="inline-block px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full capitalize">
+                      {item.category}
+                    </span>
+
+                    <div className="mt-2 text-xs text-gray-500">
+                      {activeMediaType === "videos" && item.duration && (
+                        <div>Duration: {Math.floor(item.duration / 60)}:{(item.duration % 60).toString().padStart(2, "0")}</div>
+                      )}
+                      {activeMediaType === "albums" && item.page_count && (
+                        <div>Pages: {item.page_count}</div>
+                      )}
+                      {item.file_size && (
+                        <div>Size: {(item.file_size / (1024 * 1024)).toFixed(1)} MB</div>
+                      )}
+                    </div>
+                    
+                    <p className="text-xs text-gray-500 mt-1 truncate">
+                      {item[getUrlField(activeMediaType)]}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
             {getCurrentMediaData().length === 0 && (
               <div className="text-center py-20 text-gray-500">
