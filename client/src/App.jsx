@@ -44,80 +44,82 @@ function ConditionalFooter() {
 
 function App() {
   return (
-    <Router>
-      <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white">
-        {/* Notification Toaster */}
-        <Toaster
-          position="top-center"
-          toastOptions={{
-            className: '',
-            style: {
-              border: '1px solid #ec4899',
-              padding: '16px',
-              color: '#ec4899',
-              background: '#fdf2f8',
-            },
-          }}
-        />
-        
-        {/* Conditional Navbar */}
-        <ConditionalNavbar />
-        
-        <main className="flex-grow">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/about" element={
-              <div className="py-20 bg-gradient-to-br from-gray-50 to-white">
-                <About />
-              </div>
-            } />
-            <Route path="/gallery" element={
-              <div className="py-12 bg-gradient-to-br from-gray-50 to-white">
-                <Gallery />
-              </div>
-            } />
-            <Route path="/services" element={
-              <div className="py-20 bg-gradient-to-br from-gray-50 to-white">
-                <Services />
-              </div>
-            } />
-            <Route path="/booking" element={
-              <div className="py-12 bg-gradient-to-br from-gray-50 to-white">
-                <Booking />
-              </div>
-            } />
-            <Route path="/contact" element={
-              <div className="py-12 bg-gradient-to-br from-gray-50 to-white">
-                <Contact />
-              </div>
-            } />
-            {/* Fixed Login Route - Remove extra wrapper divs */}
-            <Route path="/login" element={<Login />} />
-            <Route
-              path="/admin"
-              element={
-                <ProtectedRoute>
-                  {/* No navbar here */}
-                  <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
-                    <ErrorBoundary>
-                      <AdminDashboard />
-                    </ErrorBoundary>
-                  </div>
-                </ProtectedRoute>
-              }
-            />
+    <ErrorBoundary>
+      <Router>
+        <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white">
+          {/* Notification Toaster */}
+          <Toaster
+            position="top-center"
+            toastOptions={{
+              className: '',
+              style: {
+                border: '1px solid #ec4899',
+                padding: '16px',
+                color: '#ec4899',
+                background: '#fdf2f8',
+              },
+            }}
+          />
+          
+          {/* Conditional Navbar */}
+          <ConditionalNavbar />
+          
+          <main className="flex-grow">
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/about" element={
+                <div className="py-20 bg-gradient-to-br from-gray-50 to-white">
+                  <About />
+                </div>
+              } />
+              <Route path="/gallery" element={
+                <div className="py-12 bg-gradient-to-br from-gray-50 to-white">
+                  <Gallery />
+                </div>
+              } />
+              <Route path="/services" element={
+                <div className="py-20 bg-gradient-to-br from-gray-50 to-white">
+                  <Services />
+                </div>
+              } />
+              <Route path="/booking" element={
+                <div className="py-12 bg-gradient-to-br from-gray-50 to-white">
+                  <Booking />
+                </div>
+              } />
+              <Route path="/contact" element={
+                <div className="py-12 bg-gradient-to-br from-gray-50 to-white">
+                  <Contact />
+                </div>
+              } />
+              {/* Fixed Login Route - Remove extra wrapper divs */}
+              <Route path="/login" element={<Login />} />
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute>
+                    {/* No navbar here */}
+                    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
+                      <ErrorBoundary>
+                        <AdminDashboard />
+                      </ErrorBoundary>
+                    </div>
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* ✅ New routes for Video and Album pages */}
-            <Route path="/video/:id" element={<VideoPage />} />
-            <Route path="/album/:id" element={<AlbumPage />} />
+              {/* ✅ New routes for Video and Album pages */}
+              <Route path="/video/:id" element={<VideoPage />} />
+              <Route path="/album/:id" element={<AlbumPage />} />
 
-          </Routes>
-        </main>
-        
-        {/* Conditional Footer */}
-        <ConditionalFooter />
-      </div>
-    </Router>
+            </Routes>
+          </main>
+          
+          {/* Conditional Footer */}
+          <ConditionalFooter />
+        </div>
+      </Router>
+    </ErrorBoundary>
   );
 }
 

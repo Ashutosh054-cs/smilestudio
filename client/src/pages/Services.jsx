@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   FaCameraRetro, FaHeart, FaPhotoVideo, FaBookOpen,
   FaUserFriends, FaBaby, FaGraduationCap, FaRing,
@@ -6,14 +6,91 @@ import {
 } from "react-icons/fa";
 import { supabase } from "../services/supabaseClient";
 
+// Move services array outside component to prevent recreation
+const SERVICES = [
+  { 
+    id: 'wedding',
+    icon: <FaCameraRetro className="text-3xl text-blue-600" />,
+    title: "Wedding Photography",
+    description: "Capture your big day with elegant and timeless photography.",
+    price: "Starting from ₹25,000" 
+  },
+  { 
+    id: 'pre_wedding',
+    icon: <FaHeart className="text-3xl text-pink-500" />,
+    title: "Pre-Wedding Shoots",
+    description: "Romantic shoots tailored to your love story in stunning locations.",
+    price: "Starting from ₹8,000" 
+  },
+  { 
+    id: 'engagement',
+    icon: <FaRing className="text-3xl text-rose-500" />,
+    title: "Engagement Photography",
+    description: "Beautiful moments of your engagement ceremony captured perfectly.",
+    price: "Starting from ₹12,000" 
+  },
+  { 
+    id: 'event_coverage',
+    icon: <FaPhotoVideo className="text-3xl text-purple-500" />,
+    title: "Event Coverage",
+    description: "From birthdays to corporate events — we cover it all.",
+    price: "Starting from ₹5,000" 
+  },
+  { 
+    id: 'maternity_baby',
+    icon: <FaBaby className="text-3xl text-orange-500" />,
+    title: "Maternity & Baby Shoots",
+    description: "Precious moments of motherhood and newborn photography.",
+    price: "Starting from ₹6,000" 
+  },
+  { 
+    id: 'portrait_sessions',
+    icon: <FaGraduationCap className="text-3xl text-indigo-500" />,
+    title: "Portrait Sessions",
+    description: "Professional headshots and personal portrait photography.",
+    price: "Starting from ₹3,000" 
+  },
+  { 
+    id: 'album_creation',
+    icon: <FaBookOpen className="text-3xl text-yellow-500" />,
+    title: "Album Creation",
+    description: "Premium albums designed to preserve your memories beautifully.",
+    price: "Starting from ₹4,000" 
+  },
+  { 
+    id: 'client_meet_demo',
+    icon: <FaUserFriends className="text-3xl text-green-500" />,
+    title: "Client Meet & Demo",
+    description: "Book a demo session to experience our creativity live.",
+    price: "Free Consultation" 
+  },
+];
+
+// Add these constants outside the component for better memory management
+const CARD_HEIGHTS = {
+  title: 'h-16', // Fixed height for titles
+  description: 'h-20', // Fixed height for descriptions
+  price: 'h-8', // Fixed height for price tags
+};
+
 function Services() {
+  // 1. All useState hooks first
   const [discountSettings, setDiscountSettings] = useState({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
+  // 2. All useMemo hooks
+  const hasActiveDiscounts = useMemo(() => 
+    Object.values(discountSettings).some(discount => discount.active),
+    [discountSettings]
+  );
+
+  // 3. All useEffect hooks
   useEffect(() => {
     fetchDiscountSettings();
   }, []);
 
+  // Helper functions after hooks
   const fetchDiscountSettings = async () => {
     try {
       const { data, error } = await supabase
@@ -34,6 +111,8 @@ function Services() {
       setDiscountSettings(discountObj);
     } catch (error) {
       console.error("Error fetching discounts:", error);
+      setError(error.message);
+      // Set fallback discount settings
       setDiscountSettings({
         weddingPackage: {
           title: "Wedding Package Deal",
@@ -53,23 +132,13 @@ function Services() {
     }
   };
 
-  const services = [
-    { icon: <FaCameraRetro className="text-3xl text-blue-600" />, title: "Wedding Photography", description: "Capture your big day with elegant and timeless photography.", price: "Starting from ₹25,000" },
-    { icon: <FaHeart className="text-3xl text-pink-500" />, title: "Pre-Wedding Shoots", description: "Romantic shoots tailored to your love story in stunning locations.", price: "Starting from ₹8,000" },
-    { icon: <FaRing className="text-3xl text-rose-500" />, title: "Engagement Photography", description: "Beautiful moments of your engagement ceremony captured perfectly.", price: "Starting from ₹12,000" },
-    { icon: <FaPhotoVideo className="text-3xl text-purple-500" />, title: "Event Coverage", description: "From birthdays to corporate events — we cover it all.", price: "Starting from ₹5,000" },
-    { icon: <FaBaby className="text-3xl text-orange-500" />, title: "Maternity & Baby Shoots", description: "Precious moments of motherhood and newborn photography.", price: "Starting from ₹6,000" },
-    { icon: <FaGraduationCap className="text-3xl text-indigo-500" />, title: "Portrait Sessions", description: "Professional headshots and personal portrait photography.", price: "Starting from ₹3,000" },
-    { icon: <FaBookOpen className="text-3xl text-yellow-500" />, title: "Album Creation", description: "Premium albums designed to preserve your memories beautifully.", price: "Starting from ₹4,000" },
-    { icon: <FaUserFriends className="text-3xl text-green-500" />, title: "Client Meet & Demo", description: "Book a demo session to experience our creativity live.", price: "Free Consultation" },
-  ];
-
   const handleBookNow = (serviceName) => {
     const message = `Hi! I'm interested in booking your ${serviceName} service. Could you please provide more details?`;
     const whatsappUrl = `https://wa.me/917682991297?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, "_blank");
   };
 
+  // Loading state
   if (loading) {
     return (
       <section className="bg-gradient-to-br from-gray-50 to-white pt-28 pb-20 px-4" id="services">
@@ -80,8 +149,6 @@ function Services() {
       </section>
     );
   }
-
-  const hasActiveDiscounts = Object.values(discountSettings).some(discount => discount.active);
 
   return (
     <section className="bg-gradient-to-br from-gray-50 to-white pt-28 pb-20 px-4 md:px-6 lg:px-12" id="services">
@@ -110,53 +177,73 @@ function Services() {
 
       {/* Services Grid */}
       <div className="text-center mb-10">
-        <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-800">Our Services</h2>
-        <p className="text-gray-600 text-base md:text-lg mt-2 max-w-2xl mx-auto px-4">
+        <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-800 leading-tight">
+          Our Services
+        </h2>
+        <p className="text-gray-600 text-base md:text-lg mt-2 max-w-2xl mx-auto px-4 leading-relaxed">
           What we offer to make your moments memorable and transform them into timeless treasures
         </p>
         <div className="w-16 h-1 bg-gradient-to-r from-pink-500 to-purple-500 mx-auto mt-4 rounded-full"></div>
       </div>
 
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 max-w-7xl mx-auto">
-        {services.map((service, index) => (
+      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 max-w-7xl mx-auto">
+        {SERVICES.map((service, index) => (
           <div
             key={index}
-            className="group bg-white hover:shadow-xl hover:-translate-y-2 transition-all duration-300 rounded-2xl p-6 text-center border border-gray-100"
+            className="group flex flex-col justify-between bg-white hover:shadow-xl hover:-translate-y-2 transition-all duration-300 rounded-2xl p-6 border border-gray-100 h-full"
           >
-            <div className="mb-4 transform group-hover:scale-110 transition-transform duration-300">
-              {service.icon}
+            {/* Icon Section */}
+            <div className="flex flex-col items-center">
+              <div className="mb-4 transform group-hover:scale-110 transition-transform duration-300 p-3 rounded-full bg-gray-50 group-hover:bg-gray-100">
+                {service.icon}
+              </div>
+              
+              {/* Title Section - Fixed Height */}
+              <h3 className={`text-lg md:text-xl font-semibold text-gray-800 mb-2 group-hover:text-purple-700 transition-colors duration-300 flex items-center ${CARD_HEIGHTS.title}`}>
+                {service.title}
+              </h3>
+              
+              {/* Description Section - Fixed Height */}
+              <p className={`text-gray-600 mb-4 text-sm leading-relaxed ${CARD_HEIGHTS.description} flex items-center justify-center text-center`}>
+                {service.description}
+              </p>
             </div>
-            <h3 className="text-lg md:text-xl font-semibold text-gray-800 mb-2 group-hover:text-purple-700 transition-colors duration-300">
-              {service.title}
-            </h3>
-            <p className="text-gray-600 mb-4 text-sm leading-relaxed">{service.description}</p>
-            <div className="mb-4">
-              <span className="text-sm font-bold text-purple-600 bg-purple-50 px-3 py-1 rounded-full">
-                {service.price}
-              </span>
+
+            {/* Price and Button Section */}
+            <div className="flex flex-col gap-4">
+              <div className={`flex items-center justify-center ${CARD_HEIGHTS.price}`}>
+                <span className="text-sm font-bold text-purple-600 bg-purple-50 px-3 py-1 rounded-full inline-block">
+                  {service.price}
+                </span>
+              </div>
+              
+              <button
+                onClick={() => handleBookNow(service.title)}
+                className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-transform duration-300 hover:scale-105 shadow-sm"
+              >
+                <FaWhatsapp className="text-lg" /> 
+                <span className="whitespace-nowrap">Book Now</span>
+              </button>
             </div>
-            <button
-              onClick={() => handleBookNow(service.title)}
-              className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-transform duration-300 hover:scale-105"
-            >
-              <FaWhatsapp /> Book Now
-            </button>
           </div>
         ))}
       </div>
 
       {/* CTA */}
-      <div className="text-center mt-16">
+      <div className="text-center mt-16 px-4">
         <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-2xl p-6 md:p-8 max-w-3xl mx-auto">
-          <h3 className="text-xl md:text-2xl lg:text-3xl font-bold mb-3">Ready to Create Beautiful Memories?</h3>
-          <p className="text-base md:text-lg opacity-90 mb-5 px-2">
+          <h3 className="text-xl md:text-2xl lg:text-3xl font-bold mb-3 leading-tight">
+            Ready to Create Beautiful Memories?
+          </h3>
+          <p className="text-base md:text-lg opacity-90 mb-5 max-w-xl mx-auto leading-relaxed">
             Let's discuss your photography needs and create something amazing together!
           </p>
           <button
             onClick={() => handleBookNow("General Inquiry")}
-            className="bg-white text-purple-600 font-bold py-3 px-8 rounded-xl hover:bg-gray-100 transition-colors duration-300 flex items-center justify-center gap-2 mx-auto"
+            className="bg-white text-purple-600 font-bold py-3 px-8 rounded-xl hover:bg-gray-100 transition-colors duration-300 flex items-center justify-center gap-2 mx-auto shadow-sm"
           >
-            <FaWhatsapp className="text-lg" /> Chat with Us Now
+            <FaWhatsapp className="text-lg" /> 
+            <span className="whitespace-nowrap">Chat with Us Now</span>
           </button>
         </div>
       </div>

@@ -1,13 +1,36 @@
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import { motion, AnimatePresence } from "framer-motion";
 import { Camera, Video, FileText, Play, Eye, ArrowRight, X, Phone, Mail, MapPin } from "lucide-react";
+import { supabase, handleSupabaseError, getImageUrl, getVideoUrl } from "../services/supabaseClient";
+
+// Import background images - replace require with import
 import bg1 from "../assets/bg1.webp";
 import bg2 from "../assets/bg2.webp";
 import bg3 from "../assets/bg3.webp";
 import bg4 from "../assets/bg4.webp";
-import { supabase, handleSupabaseError, getImageUrl, getVideoUrl } from "../services/supabaseClient";
+
+// Lazy load images
+const LazyImage = ({ src, alt, className }) => {
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    const img = new Image();
+    img.src = src;
+    img.onload = () => setLoaded(true);
+    img.onerror = () => setError(true);
+  }, [src]);
+
+  return (
+    <>
+      {error && <div className="text-red-500">Failed to load image</div>}
+      {!loaded && !error && <div className="animate-pulse bg-gray-200">Loading...</div>}
+      {loaded && !error && <img src={src} alt={alt} className={className} />}
+    </>
+  );
+};
 
 function Home() {
   const [currentText, setCurrentText] = useState("");
@@ -28,7 +51,12 @@ function Home() {
     () => ["Perfect Moments", "Beautiful Memories", "Love Stories", "Special Days", "Dream Weddings"],
     []
   );
-  const backgroundImages = useMemo(() => [bg1, bg2, bg3, bg4], []);
+  const backgroundImages = useMemo(() => [
+    { src: bg1, alt: "Background 1" },
+    { src: bg2, alt: "Background 2" },
+    { src: bg3, alt: "Background 3" },
+    { src: bg4, alt: "Background 4" }
+  ], []);
   const services = useMemo(() => [
     {
       icon: "👑",
@@ -90,9 +118,9 @@ function Home() {
 
   // Preload background images
   useEffect(() => {
-    backgroundImages.forEach(src => {
+    backgroundImages.forEach(image => {
       const img = new Image();
-      img.src = src;
+      img.src = image.src;
     });
   }, [backgroundImages]);
 
@@ -272,12 +300,13 @@ function Home() {
           <motion.div
             key={bgIndex}
             className="absolute inset-0 bg-cover bg-center"
-            style={{ backgroundImage: `url(${backgroundImages[bgIndex]})` }}
             initial={{ opacity: 0, scale: 1.05 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 1.05 }}
             transition={{ duration: 1.5, ease: "easeInOut" }}
-          />
+          >
+            <LazyImage src={backgroundImages[bgIndex].src} alt={backgroundImages[bgIndex].alt} className="w-full h-full object-cover" />
+          </motion.div>
         </AnimatePresence>
 
         <div className="absolute inset-0 bg-black/40" />
