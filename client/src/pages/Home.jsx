@@ -151,14 +151,6 @@ function Home() {
     return () => clearInterval(interval);
   }, [backgroundImages.length]);
 
-  // Testimonial rotation
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
-    }, 6000);
-    return () => clearInterval(interval);
-  }, [testimonials.length]);
-
   // Fetch gallery data when a tab is clicked
   useEffect(() => {
     const fetchGalleryData = async () => {
@@ -288,6 +280,18 @@ function Home() {
     );
   };
 
+  const handlePrevTestimonial = () => {
+    setCurrentTestimonial((prev) => 
+      prev === 0 ? testimonials.length - 1 : prev - 1
+    );
+  };
+
+  const handleNextTestimonial = () => {
+    setCurrentTestimonial((prev) => 
+      (prev + 1) % testimonials.length
+    );
+  };
+
   return (
     <>
       <Helmet>
@@ -410,13 +414,9 @@ function Home() {
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {services.map((service, index) => (
-              <motion.div
+              <div
                 key={index}
                 className="bg-white p-8 rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
               >
                 <div className="text-5xl mb-4 text-pink-600">{service.icon}</div>
                 <h3 className="text-2xl font-bold text-gray-800 mb-2">{service.title}</h3>
@@ -424,14 +424,14 @@ function Home() {
                 <ul className="text-left text-gray-600 space-y-1">
                   {service.features.map((feature, i) => (
                     <li key={i} className="flex items-center">
-                      <svg className="w-4 h-4 text-pink-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <svg className="w-4 h-4 text-pink-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
                       </svg>
                       {feature}
                     </li>
                   ))}
                 </ul>
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>
@@ -444,13 +444,7 @@ function Home() {
           <p className="text-lg text-gray-600 max-w-2xl mx-auto mb-12">
             Read what our wonderful clients have to say about their experience with us.
           </p>
-          <motion.div
-            key={currentTestimonial}
-            className="bg-white p-8 rounded-xl shadow-lg max-w-3xl mx-auto"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8 }}
-          >
+          <div className="bg-white p-8 rounded-xl shadow-lg max-w-3xl mx-auto">
             <div className="flex justify-center mb-4 text-yellow-400">
               {[...Array(testimonials[currentTestimonial].rating)].map((_, i) => (
                 <svg key={i} className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
@@ -462,8 +456,28 @@ function Home() {
               "{testimonials[currentTestimonial].text}"
             </p>
             <div className="text-gray-900 font-bold text-lg">{testimonials[currentTestimonial].name}</div>
-            <div className="text-gray-500 text-sm">{testimonials[currentTestimonial].location}</div>
-          </motion.div>
+            <div className="text-gray-500 text-sm mb-6">{testimonials[currentTestimonial].location}</div>
+            
+            {/* Add navigation buttons */}
+            <div className="flex justify-center gap-4 mt-4">
+              <button
+                onClick={handlePrevTestimonial}
+                className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <button
+                onClick={handleNextTestimonial}
+                className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
       </section>
     </>
