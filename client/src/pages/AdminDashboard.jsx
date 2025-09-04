@@ -21,6 +21,49 @@ import {
 // For now, using window.location for navigation
 import { supabase, handleSupabaseError } from "../services/supabaseClient"
 import OptimizedImage from "../components/OptimizedImage"
+import { ToastContainer, toast } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
+
+const notify = {
+  confirm: (message, onConfirm) => {
+    toast.warn(
+      <div>
+        <p className="font-medium mb-2">{message}</p>
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              toast.dismiss();
+              onConfirm();
+            }}
+            className="px-3 py-1 bg-red-600 text-white rounded-md text-sm hover:bg-red-700"
+          >
+            Yes, delete
+          </button>
+          <button
+            onClick={() => toast.dismiss()}
+            className="px-3 py-1 bg-gray-200 text-gray-800 rounded-md text-sm hover:bg-gray-300"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>,
+      {
+        autoClose: false,
+        closeOnClick: false,
+      }
+    );
+  },
+  success: (message) => {
+    toast.success(message, {
+      icon: '🎉'
+    });
+  },
+  error: (message) => {
+    toast.error(message, {
+      icon: '⚠️'
+    });
+  }
+};
 
 function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("gallery")
@@ -422,7 +465,7 @@ function AdminDashboard() {
         useCollection: false
       });
       
-      alert(`Successfully uploaded ${bulkFiles.length} files to collection!`);
+      notify.success(`Successfully uploaded ${bulkFiles.length} files to collection!`);
     } catch (error) {
       setError(error.message || "Upload failed");
     } finally {
@@ -485,7 +528,7 @@ function AdminDashboard() {
       await fetchAllMedia()
       setNewMedia({ title: "", category: "wedding", url: "", file: null, type: "image" })
       setShowAddForm(false)
-      alert(`${activeMediaType.slice(0, -1)} added successfully!`)
+      notify.success(`${activeMediaType.slice(0, -1)} added successfully!`)
     } catch (error) {
       const errorMessage = handleSupabaseError(error, `adding ${activeMediaType.slice(0, -1)}`)
       setError(errorMessage)
@@ -495,27 +538,28 @@ function AdminDashboard() {
   }
 
   const handleDeleteMedia = async (id, mediaUrl, storagePath, mediaType, thumbnailUrl) => {
-    if (!window.confirm(`Are you sure you want to delete this ${mediaType.slice(0, -1)}?`)) return
-    try {
-      setError("")
-      const tableName = `gallery_${mediaType}`
-      const bucketName = `gallery-${mediaType}`
-      const { error: dbError } = await supabase.from(tableName).delete().eq("id", id)
-      if (dbError) throw dbError
+    notify.confirm(`Are you sure you want to delete this ${mediaType.slice(0, -1)}?`, async () => {
+      try {
+        setError("")
+        const tableName = `gallery_${mediaType}`
+        const bucketName = `gallery-${mediaType}`
+        const { error: dbError } = await supabase.from(tableName).delete().eq("id", id)
+        if (dbError) throw dbError
 
-      if (storagePath) {
-        await supabase.storage.from(bucketName).remove([storagePath])
+        if (storagePath) {
+          await supabase.storage.from(bucketName).remove([storagePath])
+        }
+        if (thumbnailUrl) {
+          const thumbnailPath = thumbnailUrl.split('/').pop();
+          await supabase.storage.from("thumbnails").remove([thumbnailPath])
+        }
+        await fetchAllMedia()
+        notify.success(`${mediaType.slice(0, -1)} deleted successfully!`)
+      } catch (error) {
+        const errorMessage = handleSupabaseError(error, `deleting ${mediaType.slice(0, -1)}`)
+        setError(errorMessage)
       }
-      if (thumbnailUrl) {
-        const thumbnailPath = thumbnailUrl.split('/').pop();
-        await supabase.storage.from("thumbnails").remove([thumbnailPath])
-      }
-      await fetchAllMedia()
-      alert(`${mediaType.slice(0, -1)} deleted successfully!`)
-    } catch (error) {
-      const errorMessage = handleSupabaseError(error, `deleting ${mediaType.slice(0, -1)}`)
-      setError(errorMessage)
-    }
+    })
   }
   
   const getCurrentMediaData = () => {
@@ -581,7 +625,7 @@ function AdminDashboard() {
         .eq("key", editingDiscount)
       if (error) throw error
       setEditingDiscount(null)
-      alert("Discount settings updated successfully!")
+      notify.success("Discount settings updated successfully!")
     } catch (error) {
       const errorMessage = handleSupabaseError(error, "updating discount")
       setError(errorMessage)
@@ -589,11 +633,41 @@ function AdminDashboard() {
   }
   
   const handleLogout = () => {
-    if (window.confirm("Are you sure you want to logout?")) {
-      localStorage.removeItem("adminToken")
-      // navigate("/") // Using window.location instead
-      window.location.href = "/"
-    }
+    toast.warn(
+      ({ closeToast }) => (
+        <div className="min-w-[320px]">
+          <h4 className="text-lg font-semibold mb-3 text-gray-800">Confirm Logout</h4>
+          <p className="text-gray-600 mb-4">Are you sure you want to log out of your admin account?</p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => {
+                closeToast();
+                localStorage.removeItem("adminToken");
+                window.location.href = "/";
+              }}
+              className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+            >
+              <LogOut size={16} />
+              Yes, Logout
+            </button>
+            <button
+              onClick={closeToast}
+              className="flex-1 bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ),
+      {
+        position: "top-center",
+        autoClose: false,
+        closeOnClick: false,
+        draggable: false,
+        closeButton: false,
+        className: "rounded-lg shadow-xl",
+      }
+    );
   }
 
   // Add after your other fetch functions
@@ -1325,6 +1399,26 @@ function AdminDashboard() {
           </div>
         </div>
       )}
+      <ToastContainer
+        position="bottom-right"
+        autoClose={3000}
+        limit={3}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+        toastStyle={{
+          borderRadius: '8px',
+          padding: '16px',
+          fontSize: '14px',
+          maxWidth: '420px',
+          minHeight: '64px'
+        }}
+      />
     </div>
   )
 }
