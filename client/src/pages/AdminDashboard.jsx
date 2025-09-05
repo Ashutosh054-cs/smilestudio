@@ -635,24 +635,28 @@ function AdminDashboard() {
   const handleLogout = () => {
     toast.warn(
       ({ closeToast }) => (
-        <div className="min-w-[320px]">
-          <h4 className="text-lg font-semibold mb-3 text-gray-800">Confirm Logout</h4>
-          <p className="text-gray-600 mb-4">Are you sure you want to log out of your admin account?</p>
-          <div className="flex gap-3">
+        <div className="min-w-[280px] sm:min-w-[320px] w-full">
+          <h4 className="text-base sm:text-lg font-semibold mb-2 sm:mb-3 text-gray-800">
+            Confirm Logout
+          </h4>
+          <p className="text-sm sm:text-base text-gray-600 mb-3 sm:mb-4">
+            Are you sure you want to log out of your admin account?
+          </p>
+          <div className="flex gap-2 sm:gap-3">
             <button
               onClick={() => {
                 closeToast();
                 localStorage.removeItem("adminToken");
                 window.location.href = "/";
               }}
-              className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+              className="flex-1 bg-red-600 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
             >
-              <LogOut size={16} />
+              <LogOut size={14} className="hidden sm:block" />
               Yes, Logout
             </button>
             <button
               onClick={closeToast}
-              className="flex-1 bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors"
+              className="flex-1 bg-gray-200 text-gray-800 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg hover:bg-gray-300 transition-colors text-sm sm:text-base"
             >
               Cancel
             </button>
@@ -665,7 +669,7 @@ function AdminDashboard() {
         closeOnClick: false,
         draggable: false,
         closeButton: false,
-        className: "rounded-lg shadow-xl",
+        className: "rounded-lg shadow-xl w-[90vw] sm:w-auto",
       }
     );
   }
