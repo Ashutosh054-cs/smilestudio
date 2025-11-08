@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback, memo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,26 +11,77 @@ import bg2 from "../assets/bg2.webp";
 import bg3 from "../assets/bg3.webp";
 import bg4 from "../assets/bg4.webp";
 
-// Lazy load images
-const LazyImage = ({ src, alt, className }) => {
-  const [loaded, setLoaded] = useState(false);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    const img = new Image();
-    img.src = src;
-    img.onload = () => setLoaded(true);
-    img.onerror = () => setError(true);
-  }, [src]);
-
+// Optimized lazy load images with native loading
+const LazyImage = memo(({ src, alt, className }) => {
   return (
-    <>
-      {error && <div className="text-red-500">Failed to load image</div>}
-      {!loaded && !error && <div className="animate-pulse bg-gray-200">Loading...</div>}
-      {loaded && !error && <img src={src} alt={alt} className={className} />}
-    </>
+    <img 
+      src={src} 
+      alt={alt} 
+      className={className}
+      loading="lazy"
+      decoding="async"
+    />
   );
-};
+});
+
+// Memoized Service Card to prevent re-renders
+const ServiceCard = memo(({ service }) => (
+  <div
+    className="bg-white p-8 rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2"
+  >
+    <div className="text-5xl mb-4 text-pink-600">{service.icon}</div>
+    <h3 className="text-2xl font-bold text-gray-800 mb-2">{service.title}</h3>
+    <p className="text-gray-500 mb-4">{service.description}</p>
+    <ul className="text-left text-gray-600 space-y-1">
+      {service.features.map((feature, i) => (
+        <li key={i} className="flex items-center">
+          <svg className="w-4 h-4 text-pink-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+          {feature}
+        </li>
+      ))}
+    </ul>
+  </div>
+));
+
+// Memoized Gallery Item to prevent re-renders
+const GalleryItem = memo(({ item, index, navigate }) => (
+  <motion.div
+    key={item.id || index}
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.3, delay: index * 0.05 }}
+    className="relative rounded-lg overflow-hidden shadow-lg aspect-square group cursor-pointer"
+    onClick={() => navigate('/gallery')}
+  >
+    {item.type === 'videos' ? (
+      <div className="relative w-full h-full bg-black">
+        <video
+          src={item.url}
+          className="w-full h-full object-cover"
+          controls={false}
+          muted
+          playsInline
+          preload="metadata"
+        />
+        <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Play size={48} className="text-white" />
+        </div>
+      </div>
+    ) : (
+      <img
+        src={item.url || '/placeholder.svg'}
+        alt={item.title || 'Gallery item'}
+        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+        loading="lazy"
+      />
+    )}
+    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
+      <h4 className="text-white text-lg font-semibold truncate">{item.title}</h4>
+    </div>
+  </motion.div>
+));
 
 function Home() {
   const [currentText, setCurrentText] = useState("");
@@ -116,13 +167,12 @@ function Home() {
     }
   ], []);
 
-  // Preload background images
+  // Optimized background preload - only preload next image
   useEffect(() => {
-    backgroundImages.forEach(image => {
-      const img = new Image();
-      img.src = image.src;
-    });
-  }, [backgroundImages]);
+    const nextIndex = (bgIndex + 1) % backgroundImages.length;
+    const img = new Image();
+    img.src = backgroundImages[nextIndex].src;
+  }, [bgIndex, backgroundImages]);
 
   // Typewriter effect
   useEffect(() => {
@@ -151,53 +201,60 @@ function Home() {
     return () => clearInterval(interval);
   }, [backgroundImages.length]);
 
-  // Fetch gallery data when a tab is clicked
+  // Debounced gallery fetch to prevent rapid API calls
+  const fetchGalleryData = useCallback(async (tabType) => {
+    if (!tabType) return;
+
+    setLoadingGallery(true);
+    setGalleryError(null);
+    setGalleryItems([]);
+
+    let tableName, urlGetter;
+    if (tabType === 'photos') {
+      tableName = 'gallery_images';
+      urlGetter = getImageUrl;
+    } else if (tabType === 'videos') {
+      tableName = 'gallery_videos';
+      urlGetter = getVideoUrl;
+    } else if (tabType === 'albums') {
+      tableName = 'gallery_albums';
+      urlGetter = getImageUrl;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from(tableName)
+        .select('*')
+        .limit(4);
+
+      if (error) throw error;
+
+      const itemsWithUrls = data.map(item => ({
+        ...item,
+        url: item.storage_path ? urlGetter(item.storage_path) : item.image_url || item.thumbnail_url,
+        type: tabType,
+      }));
+      setGalleryItems(itemsWithUrls);
+    } catch (e) {
+      console.error(`Error fetching ${tabType}:`, e);
+      setGalleryError(handleSupabaseError(e));
+    } finally {
+      setLoadingGallery(false);
+    }
+  }, []);
+
+  // Fetch gallery data when a tab is clicked with debounce
   useEffect(() => {
-    const fetchGalleryData = async () => {
-      if (!activeGalleryTab) return;
+    if (!activeGalleryTab) return;
+    
+    const timeoutId = setTimeout(() => {
+      fetchGalleryData(activeGalleryTab);
+    }, 300);
 
-      setLoadingGallery(true);
-      setGalleryError(null);
-      setGalleryItems([]);
+    return () => clearTimeout(timeoutId);
+  }, [activeGalleryTab, fetchGalleryData]);
 
-      let tableName, urlGetter;
-      if (activeGalleryTab === 'photos') {
-        tableName = 'gallery_images';
-        urlGetter = getImageUrl;
-      } else if (activeGalleryTab === 'videos') {
-        tableName = 'gallery_videos';
-        urlGetter = getVideoUrl;
-      } else if (activeGalleryTab === 'albums') {
-        tableName = 'gallery_albums';
-        urlGetter = getImageUrl;
-      }
-
-      try {
-        const { data, error } = await supabase
-          .from(tableName)
-          .select('*')
-          .limit(4);
-
-        if (error) throw error;
-
-        const itemsWithUrls = data.map(item => ({
-          ...item,
-          url: item.storage_path ? urlGetter(item.storage_path) : item.image_url || item.thumbnail_url,
-          type: activeGalleryTab,
-        }));
-        setGalleryItems(itemsWithUrls);
-      } catch (e) {
-        console.error(`Error fetching ${activeGalleryTab}:`, e);
-        setGalleryError(handleSupabaseError(e));
-      } finally {
-        setLoadingGallery(false);
-      }
-    };
-
-    fetchGalleryData();
-  }, [activeGalleryTab]);
-
-  const renderGalleryContent = () => {
+  const renderGalleryContent = useCallback(() => {
     if (loadingGallery) {
       return (
         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/80">
@@ -229,39 +286,7 @@ function Home() {
         <div className="flex-grow grid grid-cols-2 lg:grid-cols-4 gap-4 overflow-y-auto max-h-[80vh] p-2">
           {galleryItems.length > 0 ? (
             galleryItems.map((item, index) => (
-              <motion.div
-                key={item.id || index}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="relative rounded-lg overflow-hidden shadow-lg aspect-square group cursor-pointer"
-                onClick={() => navigate('/gallery')}
-              >
-                {item.type === 'videos' ? (
-                  <div className="relative w-full h-full bg-black">
-                    <video
-                      src={item.url}
-                      className="w-full h-full object-cover"
-                      controls={false}
-                      muted
-                      autoPlay
-                      loop
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Play size={48} className="text-white" />
-                    </div>
-                  </div>
-                ) : (
-                  <img
-                    src={item.url || '/placeholder.svg'}
-                    alt={item.title || 'Gallery item'}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
-                  <h4 className="text-white text-lg font-semibold truncate">{item.title}</h4>
-                </div>
-              </motion.div>
+              <GalleryItem key={item.id || index} item={item} index={index} navigate={navigate} />
             ))
           ) : (
             <div className="col-span-4 text-center text-white text-lg p-8">No items found for this category.</div>
@@ -278,19 +303,19 @@ function Home() {
         </div>
       </div>
     );
-  };
+  }, [loadingGallery, galleryError, galleryItems, navigate, activeGalleryTab]);
 
-  const handlePrevTestimonial = () => {
+  const handlePrevTestimonial = useCallback(() => {
     setCurrentTestimonial((prev) => 
       prev === 0 ? testimonials.length - 1 : prev - 1
     );
-  };
+  }, [testimonials.length]);
 
-  const handleNextTestimonial = () => {
+  const handleNextTestimonial = useCallback(() => {
     setCurrentTestimonial((prev) => 
       (prev + 1) % testimonials.length
     );
-  };
+  }, [testimonials.length]);
 
   return (
     <>
@@ -300,14 +325,14 @@ function Home() {
 
       {/* HERO */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-32">
-        <AnimatePresence>
+        <AnimatePresence mode="wait">
           <motion.div
             key={bgIndex}
             className="absolute inset-0 bg-cover bg-center"
-            initial={{ opacity: 0, scale: 1.05 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.05 }}
-            transition={{ duration: 1.5, ease: "easeInOut" }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1, ease: "easeInOut" }}
           >
             <LazyImage src={backgroundImages[bgIndex].src} alt={backgroundImages[bgIndex].alt} className="w-full h-full object-cover" />
           </motion.div>
@@ -315,13 +340,13 @@ function Home() {
 
         <div className="absolute inset-0 bg-black/40" />
 
-        <AnimatePresence>
+        <AnimatePresence mode="wait">
           {activeGalleryTab && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.5 }}
+              transition={{ duration: 0.3 }}
               className="absolute inset-0 z-20 flex items-center justify-center bg-black/80 mt-18"
             >
               {renderGalleryContent()}
@@ -329,12 +354,12 @@ function Home() {
           )}
         </AnimatePresence>
 
-        <div className={`relative z-30 text-center px-4 transition-transform duration-500 ${activeGalleryTab ? 'translate-y-[-100vh]' : 'translate-y-0'}`}>
+        <div className={`relative z-30 text-center px-4 transition-opacity duration-300 ${activeGalleryTab ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
           <motion.h1
             className="text-white text-4xl md:text-7xl font-extrabold mb-4"
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
+            transition={{ duration: 0.6 }}
           >
             Capture Your{" "}
             <span className="text-pink-200">
@@ -345,17 +370,17 @@ function Home() {
 
           <motion.p
             className="text-white max-w-xl mx-auto mb-6"
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
           >
             <strong className="text-pink-200">Picture Smile Studio</strong> – Where every frame tells your unique love story.
           </motion.p>
           <motion.div
             className="flex flex-col sm:flex-row gap-4 justify-center"
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.4 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
           >
             <Link
               to="https://wa.me/917682991297"
@@ -373,9 +398,9 @@ function Home() {
 
           <motion.div
             className="mt-12 flex flex-wrap justify-center gap-4 text-white"
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.6 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
           >
             <button
               onClick={() => setActiveGalleryTab(activeGalleryTab === 'photos' ? null : 'photos')}
@@ -414,24 +439,7 @@ function Home() {
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {services.map((service, index) => (
-              <div
-                key={index}
-                className="bg-white p-8 rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2"
-              >
-                <div className="text-5xl mb-4 text-pink-600">{service.icon}</div>
-                <h3 className="text-2xl font-bold text-gray-800 mb-2">{service.title}</h3>
-                <p className="text-gray-500 mb-4">{service.description}</p>
-                <ul className="text-left text-gray-600 space-y-1">
-                  {service.features.map((feature, i) => (
-                    <li key={i} className="flex items-center">
-                      <svg className="w-4 h-4 text-pink-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                      </svg>
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <ServiceCard key={index} service={service} />
             ))}
           </div>
         </div>
