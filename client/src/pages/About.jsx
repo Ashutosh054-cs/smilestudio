@@ -1,4 +1,6 @@
+/* eslint-disable no-unused-vars */
 import { motion, AnimatePresence } from "framer-motion";
+/* eslint-enable no-unused-vars */
 import { Instagram, Facebook, Youtube, Award, Camera, Heart, X } from "lucide-react";
 import { Helmet } from "react-helmet";
 import { useState, useCallback, memo } from "react";
@@ -32,18 +34,21 @@ const CertificateCard = memo(({ cert, index, onClick }) => (
 ));
 
 // Memoized social link component
-const SocialLink = memo(({ href, icon: Icon, bgColor }) => (
-    <motion.a 
-        whileHover={{ scale: 1.1 }} 
-        whileTap={{ scale: 0.95 }}
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`${bgColor} p-4 rounded-full hover:opacity-90 transition-all shadow-lg`}
-    >
-        <Icon className="text-white" size={24} />
-    </motion.a>
-));
+const SocialLink = memo(({ href, icon, bgColor }) => {
+    const IconComponent = icon;
+    return (
+        <motion.a 
+            whileHover={{ scale: 1.1 }} 
+            whileTap={{ scale: 0.95 }}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`${bgColor} p-4 rounded-full hover:opacity-90 transition-all shadow-lg`}
+        >
+            <IconComponent className="text-white" size={24} />
+        </motion.a>
+    );
+});
 
 function About() {
     const [selectedImage, setSelectedImage] = useState(null);

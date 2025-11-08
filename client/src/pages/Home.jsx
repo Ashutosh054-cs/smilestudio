@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback, memo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet";
+/* eslint-disable no-unused-vars */
 import { motion, AnimatePresence } from "framer-motion";
+/* eslint-enable no-unused-vars */
 import { Camera, Video, FileText, Play, Eye, ArrowRight, X, Phone, Mail, MapPin } from "lucide-react";
 import { supabase, handleSupabaseError, getImageUrl, getVideoUrl } from "../services/supabaseClient";
 

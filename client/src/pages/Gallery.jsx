@@ -1,8 +1,185 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback, memo, useRef } from "react"
 import { Camera, Filter, X, Video, FileText, Play, Eye, ArrowRight } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { supabase, handleSupabaseError, getImageUrl } from "../services/supabaseClient"
+
+// Progressive Image Component with blur-up effect
+const ProgressiveImage = memo(({ src, alt, className, onError, onLoad }) => {
+  const [imgSrc, setImgSrc] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const imgRef = useRef(null)
+
+  useEffect(() => {
+    // Use Intersection Observer for lazy loading
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && !imgSrc) {
+            // Create thumbnail URL for initial load
+            let thumbnailSrc = src
+            if (src && src.includes('supabase')) {
+              // Add transformation parameters for Supabase
+              thumbnailSrc = `${src}?width=400&quality=60`
+            }
+            setImgSrc(thumbnailSrc)
+          }
+        })
+      },
+      {
+        rootMargin: '50px', // Start loading 50px before entering viewport
+        threshold: 0.01
+      }
+    )
+
+    const currentRef = imgRef.current
+    if (currentRef) {
+      observer.observe(currentRef)
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef)
+      }
+    }
+  }, [src, imgSrc])
+
+  const handleImageLoad = () => {
+    setIsLoading(false)
+    if (onLoad) onLoad()
+  }
+
+  const handleImageError = () => {
+    setIsLoading(false)
+    if (onError) onError()
+  }
+
+  return (
+    <div ref={imgRef} className={`relative ${className}`}>
+      {/* Skeleton/Blur placeholder */}
+      {isLoading && (
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-200 to-gray-300 animate-pulse" />
+      )}
+      
+      {imgSrc && (
+        <img
+          src={imgSrc}
+          alt={alt}
+          className={`${className} transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+          onLoad={handleImageLoad}
+          onError={handleImageError}
+          loading="lazy"
+          decoding="async"
+        />
+      )}
+    </div>
+  )
+})
+
+// Memoized Gallery Card Component
+const GalleryCard = memo(({ item, onClick, getImageSrc, handleImageError, handleImageLoad }) => {
+  return (
+    <div
+      className="group cursor-pointer bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2"
+      onClick={() => onClick(item)}
+    >
+      <div className="relative w-full h-64 overflow-hidden">
+        {item.type === "collection" ? (
+          <div className="relative w-full h-full bg-gradient-to-br from-purple-50 to-pink-50">
+            {item.thumbnail_url ? (
+              <ProgressiveImage
+                src={item.thumbnail_url}
+                alt={item.name}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.target.src = "/placeholder.svg"
+                }}
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <FileText size={48} className="text-purple-300" />
+              </div>
+            )}
+            <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+              <div className="bg-white/90 px-4 py-2 rounded-lg shadow-lg">
+                <p className="font-medium text-gray-800">View Collection</p>
+              </div>
+            </div>
+          </div>
+        ) : item.type === "video" ? (
+          <div className="relative w-full h-full bg-gradient-to-br from-gray-800 to-gray-900">
+            {item.thumbnail_url ? (
+              <ProgressiveImage
+                src={item.thumbnail_url}
+                alt={item.title}
+                className="w-full h-full object-cover opacity-80"
+                onError={() => handleImageError(item.id)}
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Video className="text-white/50" size={48} />
+              </div>
+            )}
+            <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center gap-2">
+              <div className="bg-white/20 p-3 rounded-full backdrop-blur-sm">
+                <Play className="text-white" size={32} />
+              </div>
+              <span className="text-white text-sm font-medium bg-black/50 px-3 py-1 rounded-full">
+                {item.title || "Watch Video"}
+              </span>
+            </div>
+            <div className="absolute top-2 left-2 bg-black/50 px-2 py-1 rounded-lg flex items-center gap-1">
+              <Video className="text-white" size={14} />
+              <span className="text-white text-xs">Video</span>
+            </div>
+          </div>
+        ) : item.type === "image" ? (
+          <div className="relative">
+            <ProgressiveImage
+              src={getImageSrc(item) || "/placeholder.svg"}
+              alt={item.title}
+              className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
+              onError={() => handleImageError(item.id)}
+              onLoad={() => handleImageLoad(item.id)}
+            />
+            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <span className="text-white text-sm font-medium bg-black/50 px-3 py-1 rounded-full">
+                {item.title || "View Image"}
+              </span>
+            </div>
+          </div>
+        ) : item.type === "album" && (
+          <div className="relative w-full h-full bg-gradient-to-br from-purple-50 to-pink-50">
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+              <div className="bg-white/90 p-3 rounded-full shadow-lg">
+                <FileText className="text-purple-600" size={32} />
+              </div>
+              <span className="text-purple-800 text-sm font-medium bg-white/90 px-3 py-1 rounded-full shadow-sm">
+                {item.title || "View Album"}
+              </span>
+            </div>
+            <div className="absolute top-2 left-2 bg-purple-500/20 px-2 py-1 rounded-lg flex items-center gap-1">
+              <FileText className="text-purple-600" size={14} />
+              <span className="text-purple-800 text-xs">Album</span>
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="p-4">
+        <h3 className="font-semibold text-gray-800 mb-2">
+          {item.type === "collection" ? item.name : item.title}
+        </h3>
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-gray-500 capitalize">{item.category}</span>
+          <div className="flex items-center gap-1 text-xs text-gray-400">
+            {item.type === "collection" && <FileText size={12} />}
+            <span className="capitalize">{item.type}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+})
 
 function Gallery() {
   const [selectedCategory, setSelectedCategory] = useState("all")
@@ -22,20 +199,6 @@ function Gallery() {
   useEffect(() => {
     fetchAllGalleryData()
   }, [])
-
-  const fetchCollections = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("gallery_collections")
-        .select("*")
-        .order("created_at", { ascending: false })
-
-      if (error) throw error
-      setCollections(data || [])
-    } catch (error) {
-      console.error("Error fetching collections:", error)
-    }
-  }
 
   const fetchAllGalleryData = async () => {
     try {
@@ -99,19 +262,19 @@ function Gallery() {
     }
   }
 
-  const handleImageError = (imageId) => {
+  const handleImageError = useCallback((imageId) => {
     setImageLoadErrors((prev) => new Set([...prev, imageId]))
-  }
+  }, [])
 
-  const handleImageLoad = (imageId) => {
+  const handleImageLoad = useCallback((imageId) => {
     setImageLoadErrors((prev) => {
       const newSet = new Set(prev)
       newSet.delete(imageId)
       return newSet
     })
-  }
+  }, [])
 
-  const getImageSrc = (image) => {
+  const getImageSrc = useCallback((image) => {
     if (imageLoadErrors.has(image.id)) {
       return `https://via.placeholder.com/800x600/ff0000/ffffff?text=ERROR`
     }
@@ -120,7 +283,13 @@ function Gallery() {
       try {
         const imageUrl = getImageUrl(image.storage_path)
         if (imageUrl) {
-          return imageUrl
+          // Add query parameters for image optimization
+          const url = new URL(imageUrl)
+          // Use smaller size for gallery thumbnails
+          url.searchParams.set('width', '800')
+          url.searchParams.set('quality', '75')
+          url.searchParams.set('format', 'webp')
+          return url.toString()
         }
       } catch (err) {
         console.error("Error getting Supabase image URL:", err)
@@ -133,7 +302,8 @@ function Gallery() {
           const url = new URL(image.image_url)
           url.searchParams.set("auto", "format")
           url.searchParams.set("fit", "crop")
-          url.searchParams.set("q", "80")
+          url.searchParams.set("w", "800")
+          url.searchParams.set("q", "75")
           return url.toString()
         }
         return image.image_url
@@ -143,9 +313,9 @@ function Gallery() {
     }
 
     return `https://via.placeholder.com/800x600/cccccc/666666?text=No+Image`
-  }
+  }, [imageLoadErrors])
 
-  const categories = [
+  const categories = useMemo(() => [
     { key: "all", label: "All Categories", count: galleryImages.length + galleryVideos.length + galleryAlbums.length },
     {
       key: "wedding",
@@ -182,9 +352,9 @@ function Gallery() {
       count: [...galleryImages, ...galleryVideos, ...galleryAlbums].filter((item) => item.category === "maternity")
         .length,
     },
-  ]
+  ], [galleryImages, galleryVideos, galleryAlbums])
 
-  const mediaTypes = [
+  const mediaTypes = useMemo(() => [
     {
       key: "all",
       label: "All Media",
@@ -200,9 +370,9 @@ function Gallery() {
       icon: FileText, 
       count: collections.length 
     },
-  ]
+  ], [galleryImages, galleryVideos, galleryAlbums, collections])
 
-  const getFilteredData = () => {
+  const getFilteredData = useCallback(() => {
     let allData = []
     
     if (selectedMediaType === "all" || selectedMediaType === "collections") {
@@ -225,11 +395,11 @@ function Gallery() {
       return allData
     }
     return allData.filter((item) => item.category === selectedCategory)
-  }
+  }, [selectedMediaType, selectedCategory, collections, galleryImages, galleryVideos, galleryAlbums])
 
-  const filteredData = getFilteredData()
+  const filteredData = useMemo(() => getFilteredData(), [getFilteredData])
 
-  const handleMediaClick = async (item) => {
+  const handleMediaClick = useCallback(async (item) => {
     if (item.type === "collection") {
       setLoading(true);
       try {
@@ -255,12 +425,12 @@ function Gallery() {
     } else if (item.type === "album") {
       navigate(`/album/${item.id}`);
     }
-  }
+  }, [navigate])
 
-  const handleCollectionImageClick = (image) => {
+  const handleCollectionImageClick = useCallback((image) => {
     setSelectedImage(image);
     setIsImageModalOpen(true);
-  }
+  }, [])
 
   if (loading) {
     return (
@@ -327,115 +497,16 @@ function Gallery() {
           ))}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredData.map((item) => {
-            return (
-              <div
-                key={`${item.type}-${item.id}`}
-                className="group cursor-pointer bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2"
-                onClick={() => handleMediaClick(item)}
-              >
-                <div className="relative w-full h-64 overflow-hidden">
-                  {item.type === "collection" ? (
-                    <div className="relative w-full h-full bg-gradient-to-br from-purple-50 to-pink-50">
-                      {item.thumbnail_url ? (
-                        <img
-                          src={item.thumbnail_url}
-                          alt={item.name}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.target.src = "/placeholder.svg"
-                          }}
-                        />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <FileText size={48} className="text-purple-300" />
-                        </div>
-                      )}
-                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                        <div className="bg-white/90 px-4 py-2 rounded-lg shadow-lg">
-                          <p className="font-medium text-gray-800">View Collection</p>
-                        </div>
-                      </div>
-                    </div>
-                  ) : item.type === "video" ? (
-                    <div className="relative w-full h-full bg-gradient-to-br from-gray-800 to-gray-900">
-                      {item.thumbnail_url ? (
-                        <img
-                          src={item.thumbnail_url}
-                          alt={item.title}
-                          className="w-full h-full object-cover opacity-80"
-                          onError={() => handleImageError(item.id)}
-                        />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Video className="text-white/50" size={48} />
-                        </div>
-                      )}
-                      {/* Video overlay with play button and title */}
-                      <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center gap-2">
-                        <div className="bg-white/20 p-3 rounded-full backdrop-blur-sm">
-                          <Play className="text-white" size={32} />
-                        </div>
-                        <span className="text-white text-sm font-medium bg-black/50 px-3 py-1 rounded-full">
-                          {item.title || "Watch Video"}
-                        </span>
-                      </div>
-                      {/* Video indicator */}
-                      <div className="absolute top-2 left-2 bg-black/50 px-2 py-1 rounded-lg flex items-center gap-1">
-                        <Video className="text-white" size={14} />
-                        <span className="text-white text-xs">Video</span>
-                      </div>
-                    </div>
-                  ) : item.type === "image" ? (
-                    <div className="relative">
-                      <img
-                        src={getImageSrc(item) || "/placeholder.svg"}
-                        alt={item.title}
-                        className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
-                        onError={() => handleImageError(item.id)}
-                        onLoad={() => handleImageLoad(item.id)}
-                        loading="lazy"
-                      />
-                      {/* Image title overlay on hover */}
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <span className="text-white text-sm font-medium bg-black/50 px-3 py-1 rounded-full">
-                          {item.title || "View Image"}
-                        </span>
-                      </div>
-                    </div>
-                  ) : item.type === "album" && (
-                    <div className="relative w-full h-full bg-gradient-to-br from-purple-50 to-pink-50">
-                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                        <div className="bg-white/90 p-3 rounded-full shadow-lg">
-                          <FileText className="text-purple-600" size={32} />
-                        </div>
-                        <span className="text-purple-800 text-sm font-medium bg-white/90 px-3 py-1 rounded-full shadow-sm">
-                          {item.title || "View Album"}
-                        </span>
-                      </div>
-                      {/* Album indicator */}
-                      <div className="absolute top-2 left-2 bg-purple-500/20 px-2 py-1 rounded-lg flex items-center gap-1">
-                        <FileText className="text-purple-600" size={14} />
-                        <span className="text-purple-800 text-xs">Album</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div className="p-4">
-                  <h3 className="font-semibold text-gray-800 mb-2">
-                    {item.type === "collection" ? item.name : item.title}
-                  </h3>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500 capitalize">{item.category}</span>
-                    <div className="flex items-center gap-1 text-xs text-gray-400">
-                      {item.type === "collection" && <FileText size={12} />}
-                      <span className="capitalize">{item.type}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
+          {filteredData.map((item) => (
+            <GalleryCard
+              key={`${item.type}-${item.id}`}
+              item={item}
+              onClick={handleMediaClick}
+              getImageSrc={getImageSrc}
+              handleImageError={handleImageError}
+              handleImageLoad={handleImageLoad}
+            />
+          ))}
         </div>
         {filteredData.length === 0 && !loading && (
           <div className="text-center py-20">
@@ -473,12 +544,11 @@ function Gallery() {
                     className="aspect-square rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity relative group"
                     onClick={() => handleCollectionImageClick(image)}
                   >
-                    <img
+                    <ProgressiveImage
                       src={getImageSrc(image)}
                       alt={image.title}
                       className="w-full h-full object-cover"
                       onError={() => handleImageError(image.id)}
-                      loading="lazy"
                     />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <Eye className="text-white" size={24} />
@@ -510,12 +580,14 @@ function Gallery() {
             >
               <X size={24} />
             </button>
-            <img
-              src={getImageSrc(selectedImage)}
-              alt={selectedImage.title}
-              className="max-w-full max-h-[90vh] object-contain rounded-lg"
-              onError={() => handleImageError(selectedImage.id)}
-            />
+            <div className="relative max-w-full max-h-[90vh]">
+              <ProgressiveImage
+                src={getImageSrc(selectedImage)}
+                alt={selectedImage.title}
+                className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                onError={() => handleImageError(selectedImage.id)}
+              />
+            </div>
             <div className="w-full mt-4 px-4 text-white">
               <h3 className="text-lg sm:text-xl font-semibold mb-1">{selectedImage.title}</h3>
               <p className="text-sm opacity-90 capitalize">Category: {selectedImage.category}</p>
@@ -526,5 +598,6 @@ function Gallery() {
     </section>
   )
 }
+
 
 export default Gallery
